@@ -12,6 +12,7 @@ dependencies = [
     "google-genai>=2.22.0",
     "mcp>=2.2.0",
     "mcp-clickhouse>=0.6.0",
+    "python-dotenv>=1.2.3",
     "uvicorn>=0.52.4",
 ]
 

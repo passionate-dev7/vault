@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 from qc import store
 
@@ -99,7 +100,10 @@ async def catalog():
         for row in rows:
             row["failed_checks"]  = [c for c in (row.get("failed_checks") or []) if c]
             row["rescue_costs"]   = [c for c in (row.get("rescue_costs")  or []) if c]
-        return JSONResponse(rows)
+            # Serialize datetime
+            if hasattr(row.get("last_scanned"), "isoformat"):
+                row["last_scanned"] = row["last_scanned"].isoformat()
+        return JSONResponse(jsonable_encoder(rows))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 

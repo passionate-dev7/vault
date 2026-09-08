@@ -132,8 +132,8 @@ class MCPClickHouseClient:
         return {"text": result_text, "raw": result}
 
     async def query(self, sql: str) -> str:
-        """Execute a SQL query via the mcp-clickhouse query tool."""
-        r = await self.call_tool("clickhouse_query", {"query": sql})
+        """Execute a SQL query via the mcp-clickhouse run_query tool."""
+        r = await self.call_tool("run_query", {"query": sql})
         return r["text"]
 
     async def close(self) -> None:

@@ -2361,6 +2361,7 @@ dependencies = [
     { name = "google-genai" },
     { name = "mcp" },
     { name = "mcp-clickhouse" },
+    { name = "python-dotenv" },
     { name = "uvicorn" },
 ]
 
@@ -2372,6 +2373,7 @@ requires-dist = [
     { name = "google-genai", specifier = ">=2.22.0" },
     { name = "mcp", specifier = ">=2.2.0" },
     { name = "mcp-clickhouse", specifier = ">=0.6.0" },
+    { name = "python-dotenv", specifier = ">=1.2.3" },
     { name = "uvicorn", specifier = ">=0.52.4" },
 ]
 

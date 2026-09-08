@@ -15,6 +15,14 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+from pathlib import Path
+
+# Load .env if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent.parent / ".env")
+except ImportError:
+    pass
 
 log = logging.getLogger(__name__)
 
