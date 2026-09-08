@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VAULT — delivery rejection ledger</title>
+<title>VAULT: delivery rejection ledger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* WIRED design system tokens — white canvas, black ink, one link blue, fail red.
+/* WIRED design system tokens - white canvas, black ink, one link blue, fail red.
    Playfair for display, Source Serif for reading, Inter for utility, JetBrains Mono
    for every number. No cards, no pills, no dark mode. */
 :root {
@@ -335,17 +335,17 @@ details > summary:hover { color: var(--ink); }
   <!-- Three numbers baselined, no cards -->
   <div class="numbers-band">
     <div class="number-item">
-      <span class="number-value" id="n-titles">—</span>
+      <span class="number-value" id="n-titles">-</span>
       <span class="number-label">Titles scanned</span>
     </div>
     <div class="numbers-sep"></div>
     <div class="number-item">
-      <span class="number-value is-fail" id="n-fail">—</span>
+      <span class="number-value is-fail" id="n-fail">-</span>
       <span class="number-label">Failing delivery</span>
     </div>
     <div class="numbers-sep"></div>
     <div class="number-item">
-      <span class="number-value" id="n-auto">—</span>
+      <span class="number-value" id="n-auto">-</span>
       <span class="number-label">Pass after auto-repair</span>
     </div>
   </div>
@@ -363,7 +363,7 @@ details > summary:hover { color: var(--ink); }
     <button class="btn-triage" id="btn-triage" onclick="runTriage()">Re-triage selected title</button>
   </div>
 
-  <!-- Catalog table — the product -->
+  <!-- Catalog table - the product -->
   <div class="table-wrap">
     <table id="catalog-table">
       <thead>
@@ -385,7 +385,7 @@ details > summary:hover { color: var(--ink); }
   <!-- Triage output (inline, hidden until triggered) -->
   <div class="triage-out" id="triage-output"></div>
 
-  <!-- MCP log — footnote, collapsed -->
+  <!-- MCP log - footnote, collapsed -->
   <div class="mcp-footnote">
     <details id="mcp-details" ontoggle="handleMcpToggle(this)">
       <summary>Queries the agent ran (MCP log)</summary>
@@ -409,9 +409,9 @@ let mcpLoaded  = false;
 async function loadStats() {
   try {
     const d = await fetch("/api/stats").then(r => r.json());
-    document.getElementById("n-titles").textContent = (d.title_count ?? "—").toLocaleString();
-    document.getElementById("n-fail").textContent   = (d.failing    ?? "—").toLocaleString();
-    document.getElementById("n-auto").textContent   = (d.auto_fixable ?? "—").toLocaleString();
+    document.getElementById("n-titles").textContent = (d.title_count ?? "-").toLocaleString();
+    document.getElementById("n-fail").textContent   = (d.failing    ?? "-").toLocaleString();
+    document.getElementById("n-auto").textContent   = (d.auto_fixable ?? "-").toLocaleString();
   } catch(e) { console.error("stats", e); }
 }
 
@@ -443,7 +443,7 @@ function sortBy(key, desc, btn) {
 }
 
 function lufsSpan(lufs) {
-  if (lufs == null) return `<span class="lufs-none">—</span>`;
+  if (lufs == null) return `<span class="lufs-none">-</span>`;
   const v     = parseFloat(lufs);
   const delta = Math.abs(v - (-23));
   const cls   = delta > 3 ? "lufs-fail" : delta > 1 ? "lufs-warn" : "lufs-ok";
@@ -452,13 +452,13 @@ function lufsSpan(lufs) {
 }
 
 function rescueText(row) {
-  if (!row.failures) return "—";
+  if (!row.failures) return "-";
   const a = row.auto_fixable || 0;
   const h = row.needs_human  || 0;
   if (h > 0 && a > 0) return `${a} auto, ${h} human`;
   if (h > 0) return `${h} human`;
   if (a > 0) return `${a} auto`;
-  return "—";
+  return "-";
 }
 
 function renderTable() {
@@ -481,34 +481,39 @@ function renderTable() {
   tbody.innerHTML = filtered.map((r, i) => {
     const rank   = i + 1;
     const tid    = r.title_id;
-    const label  = (r.title || r.title_id).replace(/'/g, "\\'");
     const isExp  = expandedId === tid;
     const verdict = r.verdict === "PASS"
       ? `<span class="verdict-pass">PASS</span>`
       : `<span class="verdict-fail">FAIL</span>`;
+    const safe = String(tid).replace(/[^a-z0-9]/gi, "_");
 
     return `
-<tr class="data-row${isExp ? " expanded" : ""}" onclick="toggleExpand('${tid}', '${label}')">
+<tr class="data-row${isExp ? " expanded" : ""}" data-tid="${String(tid).replace(/"/g, "&quot;")}">
   <td class="td-rank">${rank}</td>
   <td class="td-title">${r.title || r.title_id}</td>
   <td class="td-lufs">${lufsSpan(r.integrated_lufs)}</td>
-  <td class="td-num">${r.failures ?? "—"}</td>
+  <td class="td-num">${r.failures ?? "-"}</td>
   <td class="td-rescue">${rescueText(r)}</td>
   <td class="td-verdict">${verdict}</td>
 </tr>
-<tr class="expand-row${isExp ? " open" : ""}" id="exp-${tid.replace(/[^a-z0-9]/gi, "_")}">
+<tr class="expand-row${isExp ? " open" : ""}" id="exp-${safe}">
   <td colspan="6">
-    <div class="expand-inner" id="inner-${tid.replace(/[^a-z0-9]/gi, "_")}">
-      <div style="color:var(--body);font-family:var(--mono);font-size:13px">Loading…</div>
+    <div class="expand-inner" id="inner-${safe}">
+      <div style="color:var(--body);font-family:var(--mono);font-size:13px">Loading...</div>
     </div>
   </td>
 </tr>`;
   }).join("");
+  tbody.onclick = (e) => {
+    const tr = e.target.closest("tr.data-row");
+    if (!tr) return;
+    toggleExpand(tr.dataset.tid);
+  };
 
   if (expandedId) {
     const safe = expandedId.replace(/[^a-z0-9]/gi, "_");
     const inner = document.getElementById(`inner-${safe}`);
-    if (inner && inner.textContent.trim() === "Loading…") {
+    if (inner && inner.textContent.trim() === "Loading...") {
       loadDetail(expandedId);
     }
   }
@@ -534,8 +539,8 @@ async function loadDetail(titleId) {
     const d = await fetch(`/api/title/${encodeURIComponent(titleId)}`).then(r => r.json());
 
     const fRows = (d.findings || []).map(f => {
-      const m    = f.measured != null ? `${parseFloat(f.measured).toFixed(2)} ${f.unit || ""}`.trim() : "—";
-      const t    = f.target   != null ? `${parseFloat(f.target).toFixed(2)} ${f.unit || ""}`.trim()   : "—";
+      const m    = f.measured != null ? `${parseFloat(f.measured).toFixed(2)} ${f.unit || ""}`.trim() : "-";
+      const t    = f.target   != null ? `${parseFloat(f.target).toFixed(2)} ${f.unit || ""}`.trim()   : "-";
       const stat = f.passed
         ? `<span class="f-pass">pass</span>`
         : `<span class="f-fail">fail</span>`;
@@ -545,12 +550,12 @@ async function loadDetail(titleId) {
         <td class="f-meas">${m}</td>
         <td class="f-meas">${t}</td>
         <td>${stat}</td>
-        <td class="f-rescue">${f.rescue_cost || "—"}${detail}</td>
+        <td class="f-rescue">${f.rescue_cost || "-"}${detail}</td>
       </tr>`;
     }).join("");
 
     const sampleNote = d.sample_count
-      ? `${d.sample_count.toLocaleString()} rows — short-term LUFS (red) vs target -23 LUFS (blue)`
+      ? `${d.sample_count.toLocaleString()} rows - short-term LUFS (red) vs target -23 LUFS (blue)`
       : "No loudness data";
 
     inner.innerHTML = `
