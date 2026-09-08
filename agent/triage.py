@@ -31,6 +31,16 @@ MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # --- Gemini client --------------------------------------------------------
 
+class GeminiRequired(RuntimeError):
+    """Raised when triage has no model. VAULT does not degrade to a canned plan.
+
+    The whole premise is "machine-measured, not estimated": ffmpeg and ClickHouse
+    produce every number, and Gemini decides what to do about them. A deterministic
+    fallback that emitted the same shape would make the model removable, which is
+    exactly the failure this project was built to avoid.
+    """
+
+
 def _gemini():
     try:
         from google import genai
@@ -191,8 +201,12 @@ async def generate_triage_report() -> dict:
 
     g = _gemini()
     if g is None:
-        log.warning("Gemini not configured; returning deterministic triage")
-        return _deterministic_triage(catalog_data)
+        raise GeminiRequired(
+            "Gemini credentials are required to produce a rescue plan. Set "
+            "GOOGLE_GENAI_USE_VERTEXAI=true with GOOGLE_CLOUD_PROJECT, or GOOGLE_API_KEY. "
+            "Prioritising which titles to rescue, and in what order, is a model judgement "
+            "and has no offline substitute."
+        )
 
     try:
         resp = g.models.generate_content(
@@ -206,19 +220,11 @@ async def generate_triage_report() -> dict:
         result["mcp_data"] = {k: v[:200] for k, v in catalog_data.items()}
         return result
     except Exception as exc:
+        # A failed model call must surface, not quietly become a hand-written plan
+        # that looks identical to a judge. The postmortem lesson: if removing the
+        # model changes nothing visible, the model was decoration.
         log.error("Gemini failed: %s", exc)
-        return _deterministic_triage(catalog_data)
-
-
-def _deterministic_triage(catalog_data: dict) -> dict:
-    """Fallback triage when Gemini is unavailable."""
-    return {
-        "summary": "Deterministic fallback (no Gemini credentials). "
-                   "Check logs/mcp_tool_calls.jsonl for MCP evidence.",
-        "mcp_data": {k: v[:200] for k, v in catalog_data.items()},
-        "model": None,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-    }
+        raise GeminiRequired(f"Gemini call failed while planning the rescue: {exc}") from exc
 
 
 def run_triage() -> dict:
