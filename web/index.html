@@ -3,166 +3,179 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VAULT — Archive Delivery Triage</title>
+<title>VAULT: which titles in the catalog would fail delivery today</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg:       #0d0f12;
-    --surface:  #161a1f;
-    --border:   #252b33;
-    --text:     #d4d9e0;
-    --muted:    #6b7585;
-    --accent:   #3b8bf5;
-    --fail:     #e05252;
-    --pass:     #3dba6e;
-    --warn:     #d97a2c;
-    --mono:     "JetBrains Mono", "Fira Mono", "Consolas", monospace;
-    --sans:     "Inter", "Helvetica Neue", Arial, sans-serif;
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg); color: var(--text);
-    font-family: var(--sans); font-size: 14px; line-height: 1.55;
-    min-height: 100vh;
-  }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
+  /* Tokens from DESIGN.md (WIRED design system), used verbatim.
+     Chosen for the subject: VAULT's output is a ranked index of which titles in
+     a catalog would be rejected today. That is a magazine contents page, not a
+     telemetry dashboard, so the system is a strict black-on-white editorial duet
+     with a tall serif display voice and a single link blue. The three WIRED
+     faces are proprietary; the design file names the substitutes used here
+     (Playfair Display for display, Source Serif for reading text, Inter for
+     utility). Tokens live here once, never inline on elements. */
+  :root{
+    --primary:#000000; --on-primary:#ffffff;
+    --ink:#000000; --ink-soft:#1a1a1a; --body:#757575;
+    --hairline:#e0e0e0; --canvas:#ffffff; --canvas-soft:#f5f5f5;
+    --link:#057dbc;
+    --fail:#c81e1e; --pass:#1a7f37; --warn:#a16207;
 
-  /* ---- layout ---- */
-  header {
-    padding: 20px 28px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex; align-items: baseline; gap: 18px;
-  }
-  h1 { font-size: 18px; font-weight: 700; letter-spacing: .03em; color: #fff; }
-  .subtitle { color: var(--muted); font-size: 13px; }
+    --s-xs:8px; --s-sm:12px; --s-base:16px; --s-md:20px;
+    --s-lg:24px; --s-xl:32px; --s-xxl:48px; --s-section:80px;
 
-  main { padding: 24px 28px; max-width: 1400px; }
-
-  /* ---- stats bar ---- */
-  .stats-bar {
-    display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 22px;
+    --display:'Playfair Display', 'Times New Roman', Georgia, serif;
+    --read:'Source Serif 4', Georgia, serif;
+    --sans:'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
   }
-  .stat-card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 6px; padding: 12px 18px; min-width: 160px;
-  }
-  .stat-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-  .stat-card .value { font-size: 24px; font-weight: 700; font-family: var(--mono); margin-top: 2px; }
-  .stat-card .value.fail { color: var(--fail); }
-  .stat-card .value.pass { color: var(--pass); }
-  .stat-card .value.accent { color: var(--accent); }
-
-  .scan-note {
-    font-size: 12px; color: var(--muted); margin-bottom: 20px;
-    padding: 8px 14px; background: var(--surface); border-left: 3px solid var(--accent);
-    border-radius: 0 4px 4px 0;
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{
+    background:var(--canvas); color:var(--ink-soft);
+    font:400 17px/1.45 var(--sans);
+    -webkit-font-smoothing:antialiased;
   }
 
-  /* ---- controls ---- */
-  .controls {
-    display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;
+  /* The masthead is the brand. Tall narrow serif, black, no letterspacing
+     tricks and no accent colour: WIRED earns attention with type, not voltage. */
+  header{
+    border-bottom:2px solid var(--ink);
+    padding:var(--s-xl) var(--s-xl) var(--s-md);
   }
-  .controls input[type=text] {
-    background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 7px 12px; border-radius: 4px; font-size: 13px; width: 240px;
-    outline: none;
+  .masthead{
+    font-family:var(--display); font-size:56px; font-weight:400;
+    line-height:1.0; letter-spacing:-1px; color:var(--ink);
   }
-  .controls input[type=text]:focus { border-color: var(--accent); }
-  button {
-    background: var(--surface); border: 1px solid var(--border); color: var(--text);
-    padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
-    transition: border-color .15s;
+  .standfirst{
+    font-family:var(--read); font-size:19px; line-height:1.5;
+    color:var(--body); max-width:62ch; margin-top:var(--s-sm);
   }
-  button:hover { border-color: var(--accent); color: #fff; }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-  button.primary:hover { background: #2d7ae0; }
 
-  /* ---- table ---- */
-  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
-  table { width: 100%; border-collapse: collapse; }
-  thead th {
-    background: var(--surface); padding: 10px 14px; text-align: left;
-    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
-    border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap;
-    user-select: none;
-  }
-  thead th:hover { color: var(--text); }
-  thead th.sorted-asc::after  { content: " ↑"; color: var(--accent); }
-  thead th.sorted-desc::after { content: " ↓"; color: var(--accent); }
-  tbody tr { border-bottom: 1px solid var(--border); }
-  tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: rgba(59,139,245,.06); cursor: pointer; }
-  tbody td { padding: 9px 14px; font-size: 13px; }
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 3px;
-    font-size: 11px; font-weight: 700; font-family: var(--mono); letter-spacing: .04em;
-  }
-  .badge.fail { background: rgba(224,82,82,.18); color: var(--fail); }
-  .badge.pass { background: rgba(61,186,110,.18); color: var(--pass); }
-  .badge.auto { background: rgba(59,139,245,.18); color: var(--accent); }
-  .badge.human { background: rgba(217,122,44,.18); color: var(--warn); }
-  .lufs-val { font-family: var(--mono); }
-  .lufs-bad  { color: var(--fail); }
-  .lufs-warn { color: var(--warn); }
-  .lufs-ok   { color: var(--pass); }
+  main{max-width:1160px; margin:0 auto; padding:var(--s-xl)}
 
-  /* ---- detail panel ---- */
-  .detail-panel {
-    display: none; position: fixed; top: 0; right: 0; width: 520px; height: 100vh;
-    background: var(--surface); border-left: 1px solid var(--border);
-    overflow-y: auto; z-index: 100; padding: 20px 24px;
+  h2{
+    font-family:var(--display); font-size:32px; font-weight:400;
+    line-height:1.1; color:var(--ink); margin-bottom:var(--s-base);
   }
-  .detail-panel.open { display: block; }
-  .detail-close { float: right; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
-  .detail-close:hover { color: var(--text); }
-  .detail-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; padding-right: 30px; }
-
-  .findings-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-  .findings-table th {
-    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
-    padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left;
+  h3{
+    font-family:var(--display); font-size:22px; font-weight:400;
+    line-height:1.2; color:var(--ink);
   }
-  .findings-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
-
-  /* ---- chart ---- */
-  .chart-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 18px; }
-  canvas { width: 100%; display: block; }
-
-  /* ---- triage panel ---- */
-  .triage-section { margin-top: 28px; }
-  .triage-section h2 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #fff; }
-  .triage-output {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
-    padding: 16px; font-size: 13px; white-space: pre-wrap; font-family: var(--mono);
-    max-height: 500px; overflow-y: auto; display: none;
+  .kicker{
+    font:700 12px/1.4 var(--sans); letter-spacing:1.2px;
+    text-transform:uppercase; color:var(--ink);
   }
-  .triage-output.visible { display: block; }
-  .spinner { color: var(--muted); font-style: italic; }
+  .dek{font-family:var(--read); font-size:17px; line-height:1.55; color:var(--body); max-width:70ch}
 
-  /* ---- mcp log ---- */
-  .mcp-section { margin-top: 20px; }
-  .mcp-entry {
-    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    padding: 10px 14px; margin-bottom: 8px; font-family: var(--mono); font-size: 11px;
+  /* Sections are separated by rules, not by cards floating on a tinted page. */
+  section{padding:var(--s-xl) 0; border-bottom:1px solid var(--hairline)}
+  section:last-of-type{border-bottom:0}
+  .card, .panel{
+    background:var(--canvas); border:1px solid var(--hairline);
+    padding:var(--s-lg);
   }
-  .mcp-tool { color: var(--accent); font-weight: 700; }
-  .mcp-ts   { color: var(--muted); }
 
-  /* ---- overlay ---- */
-  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 90; }
-  .overlay.open { display: block; }
-
-  @media (max-width: 768px) {
-    .detail-panel { width: 100%; }
-    header { flex-direction: column; gap: 4px; }
+  button{
+    background:var(--primary); color:var(--on-primary); border:0;
+    padding:13px 22px; height:44px;
+    font:700 13px/1 var(--sans); letter-spacing:1.2px; text-transform:uppercase;
+    cursor:pointer; transition:opacity .15s ease;
   }
+  button:hover:not(:disabled){opacity:.82}
+  button:disabled{background:var(--hairline); color:var(--body); cursor:default}
+
+  input, select{
+    background:var(--canvas); border:1px solid var(--ink);
+    padding:12px 14px; font:400 16px/1 var(--sans); color:var(--ink);
+  }
+  input:focus, select:focus{outline:2px solid var(--link); outline-offset:1px}
+
+  /* The ranked index. This is the product, so it is set as a contents table:
+     rules between rows, no zebra fill, numerals aligned. */
+  table{width:100%; border-collapse:collapse; font-size:16px}
+  th{
+    text-align:left; font:700 12px/1.4 var(--sans); letter-spacing:1.2px;
+    text-transform:uppercase; color:var(--ink);
+    padding:10px 8px; border-bottom:2px solid var(--ink);
+  }
+  td{padding:14px 8px; border-bottom:1px solid var(--hairline); vertical-align:top; color:var(--ink-soft)}
+  tr:last-child td{border-bottom:0}
+  .title-cell{font-family:var(--read); font-size:18px; line-height:1.35}
+
+  .num, .mono{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:15px}
+  .stat{font-family:var(--display); font-size:56px; font-weight:400; line-height:1; color:var(--ink)}
+  .fail{color:var(--fail); font-weight:600}
+  .pass{color:var(--pass); font-weight:600}
+  .warn{color:var(--warn); font-weight:600}
+  .muted{color:var(--body)}
+
+  a{color:var(--link); text-decoration:none}
+  a:hover{text-decoration:underline}
+
+  .note{
+    border-left:3px solid var(--ink); padding-left:var(--s-base);
+    font-family:var(--read); font-size:17px; line-height:1.55; color:var(--ink-soft);
+  }
+  .repro, code, pre{
+    font-family:var(--mono); font-size:14px; line-height:1.55;
+    background:var(--canvas-soft); color:var(--ink-soft);
+  }
+  .repro, pre{padding:var(--s-base); overflow-x:auto; white-space:pre; border:1px solid var(--hairline)}
+  .empty{color:var(--body); font-family:var(--read); font-size:17px}
+
+  /* Classes carried over from the previous markup, restated in WIRED tokens
+     rather than deleted, so no element silently loses its styling. */
+  .subtitle{font-family:var(--read); font-size:19px; line-height:1.5;
+            color:var(--body); max-width:62ch; display:block; margin-top:var(--s-sm)}
+  .stats-bar{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+             gap:var(--s-lg); padding:var(--s-xl) 0; border-bottom:2px solid var(--ink)}
+  .stat-card .label{font:700 12px/1.4 var(--sans); letter-spacing:1.2px;
+                    text-transform:uppercase; color:var(--body)}
+  .stat-card .value{font-family:var(--display); font-size:48px; font-weight:400;
+                    line-height:1.05; color:var(--ink); margin-top:6px}
+  .value.accent{color:var(--ink)} .value.fail{color:var(--fail)} .value.pass{color:var(--pass)}
+  .controls{display:flex; gap:var(--s-sm); flex-wrap:wrap; align-items:center;
+            padding:var(--s-lg) 0}
+  button.primary{background:var(--primary); color:var(--on-primary)}
+  .scan-note{font-family:var(--read); font-size:16px; color:var(--body); margin-top:var(--s-sm)}
+  .triage-section, .mcp-section, .chart-wrap, .table-wrap{padding:var(--s-xl) 0;
+            border-bottom:1px solid var(--hairline)}
+  .table-wrap{overflow-x:auto}
+  .findings-table{width:100%; border-collapse:collapse; font-size:16px}
+  .triage-output{font-family:var(--read); font-size:17px; line-height:1.6; color:var(--ink-soft)}
+
+  /* Verdict badges: WIRED has no pill-chip system, so these are set as small
+     uppercase labels with a rule, which is how the magazine tags a section. */
+  .badge{display:inline-block; font:700 11px/1 var(--sans); letter-spacing:1.2px;
+         text-transform:uppercase; padding:5px 8px; border:1px solid currentColor}
+  .badge.pass{color:var(--pass)} .badge.fail{color:var(--fail)}
+  .badge.auto{color:var(--link)} .badge.human{color:var(--warn)}
+
+  .mcp-entry{border-left:2px solid var(--hairline); padding-left:var(--s-base);
+             margin-bottom:var(--s-base)}
+  .mcp-tool{font-family:var(--mono); font-size:14px; color:var(--ink); font-weight:500}
+  .mcp-ts{font-family:var(--mono); font-size:13px; color:var(--body)}
+
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
+           align-items:center; justify-content:center; padding:var(--s-lg); z-index:50}
+  .overlay.open{display:flex}
+  .detail-panel{background:var(--canvas); border:2px solid var(--ink);
+                max-width:860px; width:100%; max-height:84vh; overflow-y:auto;
+                padding:var(--s-xl)}
+  .detail-title{font-family:var(--display); font-size:32px; font-weight:400;
+                line-height:1.1; color:var(--ink); margin-bottom:var(--s-base)}
+  .detail-close{background:transparent; color:var(--ink); border:1px solid var(--ink);
+                height:36px; padding:0 14px}
+
 </style>
 </head>
 <body>
 
 <header>
-  <h1>VAULT</h1>
-  <span class="subtitle">Archive delivery triage — machine-measured, not estimated</span>
+  <h1 class="masthead">VAULT</h1>
+  <span class="subtitle">Which titles in a film catalog would fail delivery today, and what each one costs to rescue. Every row is a machine measurement, not an estimate.</span>
 </header>
 
 <main>
