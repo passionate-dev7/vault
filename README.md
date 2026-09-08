@@ -95,7 +95,7 @@ archive.org catalog
 ### Setup
 
 ```bash
-git clone https://github.com/1jehuang/vault
+git clone https://github.com/kamalbuilds/vault
 cd vault
 uv sync
 
