@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAULT — Archive Delivery Triage</title>
+<style>
+  :root {
+    --bg:       #0d0f12;
+    --surface:  #161a1f;
+    --border:   #252b33;
+    --text:     #d4d9e0;
+    --muted:    #6b7585;
+    --accent:   #3b8bf5;
+    --fail:     #e05252;
+    --pass:     #3dba6e;
+    --warn:     #d97a2c;
+    --mono:     "JetBrains Mono", "Fira Mono", "Consolas", monospace;
+    --sans:     "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 14px; line-height: 1.55;
+    min-height: 100vh;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* ---- layout ---- */
+  header {
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 18px;
+  }
+  h1 { font-size: 18px; font-weight: 700; letter-spacing: .03em; color: #fff; }
+  .subtitle { color: var(--muted); font-size: 13px; }
+
+  main { padding: 24px 28px; max-width: 1400px; }
+
+  /* ---- stats bar ---- */
+  .stats-bar {
+    display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 22px;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 18px; min-width: 160px;
+  }
+  .stat-card .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .stat-card .value { font-size: 24px; font-weight: 700; font-family: var(--mono); margin-top: 2px; }
+  .stat-card .value.fail { color: var(--fail); }
+  .stat-card .value.pass { color: var(--pass); }
+  .stat-card .value.accent { color: var(--accent); }
+
+  .scan-note {
+    font-size: 12px; color: var(--muted); margin-bottom: 20px;
+    padding: 8px 14px; background: var(--surface); border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+  }
+
+  /* ---- controls ---- */
+  .controls {
+    display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap;
+  }
+  .controls input[type=text] {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 12px; border-radius: 4px; font-size: 13px; width: 240px;
+    outline: none;
+  }
+  .controls input[type=text]:focus { border-color: var(--accent); }
+  button {
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
+    transition: border-color .15s;
+  }
+  button:hover { border-color: var(--accent); color: #fff; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { background: #2d7ae0; }
+
+  /* ---- table ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: var(--surface); padding: 10px 14px; text-align: left;
+    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+    border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text); }
+  thead th.sorted-asc::after  { content: " ↑"; color: var(--accent); }
+  thead th.sorted-desc::after { content: " ↓"; color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(59,139,245,.06); cursor: pointer; }
+  tbody td { padding: 9px 14px; font-size: 13px; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 11px; font-weight: 700; font-family: var(--mono); letter-spacing: .04em;
+  }
+  .badge.fail { background: rgba(224,82,82,.18); color: var(--fail); }
+  .badge.pass { background: rgba(61,186,110,.18); color: var(--pass); }
+  .badge.auto { background: rgba(59,139,245,.18); color: var(--accent); }
+  .badge.human { background: rgba(217,122,44,.18); color: var(--warn); }
+  .lufs-val { font-family: var(--mono); }
+  .lufs-bad  { color: var(--fail); }
+  .lufs-warn { color: var(--warn); }
+  .lufs-ok   { color: var(--pass); }
+
+  /* ---- detail panel ---- */
+  .detail-panel {
+    display: none; position: fixed; top: 0; right: 0; width: 520px; height: 100vh;
+    background: var(--surface); border-left: 1px solid var(--border);
+    overflow-y: auto; z-index: 100; padding: 20px 24px;
+  }
+  .detail-panel.open { display: block; }
+  .detail-close { float: right; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .detail-close:hover { color: var(--text); }
+  .detail-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; padding-right: 30px; }
+
+  .findings-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  .findings-table th {
+    font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+    padding: 6px 10px; border-bottom: 1px solid var(--border); text-align: left;
+  }
+  .findings-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+
+  /* ---- chart ---- */
+  .chart-wrap { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 18px; }
+  canvas { width: 100%; display: block; }
+
+  /* ---- triage panel ---- */
+  .triage-section { margin-top: 28px; }
+  .triage-section h2 { font-size: 14px; font-weight: 700; margin-bottom: 12px; color: #fff; }
+  .triage-output {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 16px; font-size: 13px; white-space: pre-wrap; font-family: var(--mono);
+    max-height: 500px; overflow-y: auto; display: none;
+  }
+  .triage-output.visible { display: block; }
+  .spinner { color: var(--muted); font-style: italic; }
+
+  /* ---- mcp log ---- */
+  .mcp-section { margin-top: 20px; }
+  .mcp-entry {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    padding: 10px 14px; margin-bottom: 8px; font-family: var(--mono); font-size: 11px;
+  }
+  .mcp-tool { color: var(--accent); font-weight: 700; }
+  .mcp-ts   { color: var(--muted); }
+
+  /* ---- overlay ---- */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 90; }
+  .overlay.open { display: block; }
+
+  @media (max-width: 768px) {
+    .detail-panel { width: 100%; }
+    header { flex-direction: column; gap: 4px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>VAULT</h1>
+  <span class="subtitle">Archive delivery triage — machine-measured, not estimated</span>
+</header>
+
+<main>
+
+  <!-- Stats bar -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-card">
+      <div class="label">Loudness rows</div>
+      <div class="value accent" id="s-rows">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Titles scanned</div>
+      <div class="value accent" id="s-titles">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Failing delivery</div>
+      <div class="value fail" id="s-fail">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Delivery ready</div>
+      <div class="value pass" id="s-pass">…</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Auto-fixable</div>
+      <div class="value" id="s-auto">…</div>
+    </div>
+  </div>
+
+  <div class="scan-note" id="scan-note">
+    Scan window: first 2 minutes of each title (stated honestly — not a full scan).
+    ebur128 emits ~10 loudness rows/sec; a full 28,423-title catalog would produce ~27M rows.
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <input type="text" id="search" placeholder="Filter titles…" oninput="applyFilter()">
+    <button onclick="sortBy('failures', true)">Sort by failures</button>
+    <button onclick="sortBy('integrated_lufs', true)">Sort by LUFS</button>
+    <button onclick="sortBy('verdict', false)">Sort by verdict</button>
+    <button onclick="loadCatalog()">Refresh</button>
+  </div>
+
+  <!-- Catalog table -->
+  <div class="table-wrap">
+    <table id="catalog-table">
+      <thead>
+        <tr>
+          <th onclick="sortBy('title', false)">Title</th>
+          <th onclick="sortBy('verdict', false)">Verdict</th>
+          <th onclick="sortBy('integrated_lufs', true)">LUFS</th>
+          <th onclick="sortBy('failures', true)">Failures</th>
+          <th onclick="sortBy('auto_fixable', true)">Auto-fix</th>
+          <th onclick="sortBy('needs_human', true)">Manual</th>
+          <th onclick="sortBy('loudness_sample_count', true)">Loudness rows</th>
+          <th>Rescue costs</th>
+        </tr>
+      </thead>
+      <tbody id="catalog-body">
+        <tr><td colspan="8" style="color:var(--muted);padding:18px 14px">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Triage section -->
+  <div class="triage-section">
+    <h2>Gemini rescue plan <span style="color:var(--muted);font-weight:400;font-size:12px">(queries ClickHouse via mcp-clickhouse MCP)</span></h2>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="primary" onclick="runTriage()">Generate rescue plan</button>
+      <button onclick="loadMCPLog()">Show MCP tool log</button>
+    </div>
+    <div class="triage-output" id="triage-output"></div>
+
+    <div class="mcp-section" id="mcp-section" style="display:none">
+      <h2 style="font-size:13px;color:var(--muted);margin-bottom:10px">
+        MCP tool calls (proof of mcp-clickhouse usage)
+      </h2>
+      <div id="mcp-entries"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Detail panel -->
+<div class="overlay" id="overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <span class="detail-close" onclick="closeDetail()">×</span>
+  <div class="detail-title" id="detail-title"></div>
+  <div class="chart-wrap"><canvas id="lufs-chart" height="100"></canvas></div>
+  <table class="findings-table" id="findings-table">
+    <thead>
+      <tr><th>Check</th><th>Measured</th><th>Target</th><th>Status</th><th>Rescue</th></tr>
+    </thead>
+    <tbody id="findings-body"></tbody>
+  </table>
+</div>
+
+<script>
+let allRows   = [];
+let sortKey   = "failures";
+let sortDesc  = true;
+let filterStr = "";
+
+// ---- load stats ----
+async function loadStats() {
+  try {
+    const r = await fetch("/api/stats");
+    const d = await r.json();
+    document.getElementById("s-rows").textContent   = d.loudness_sample_rows.toLocaleString();
+    document.getElementById("s-titles").textContent = d.title_count;
+    document.getElementById("s-fail").textContent   = d.failing;
+    document.getElementById("s-pass").textContent   = d.passing;
+    document.getElementById("s-auto").textContent   = d.auto_fixable;
+    if (d.note) {
+      document.getElementById("scan-note").textContent = d.note;
+    }
+  } catch(e) {
+    console.error("stats error", e);
+  }
+}
+
+// ---- load catalog ----
+async function loadCatalog() {
+  const tbody = document.getElementById("catalog-body");
+  tbody.innerHTML = "<tr><td colspan='8' style='color:var(--muted);padding:18px 14px'>Loading…</td></tr>";
+  try {
+    const r = await fetch("/api/catalog");
+    allRows = await r.json();
+    renderTable();
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan='8' style='color:var(--fail)'>Error: ${e}</td></tr>`;
+  }
+}
+
+function applyFilter() {
+  filterStr = document.getElementById("search").value.toLowerCase();
+  renderTable();
+}
+
+function sortBy(key, desc) {
+  sortKey = key; sortDesc = desc;
+  renderTable();
+}
+
+function renderTable() {
+  const rows = allRows
+    .filter(r => !filterStr || (r.title||r.title_id).toLowerCase().includes(filterStr))
+    .sort((a, b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if (av === null || av === undefined) av = sortDesc ? -Infinity : Infinity;
+      if (bv === null || bv === undefined) bv = sortDesc ? -Infinity : Infinity;
+      if (typeof av === "string") return sortDesc ? bv.localeCompare(av) : av.localeCompare(bv);
+      return sortDesc ? bv - av : av - bv;
+    });
+
+  const tbody = document.getElementById("catalog-body");
+  if (!rows.length) {
+    tbody.innerHTML = "<tr><td colspan='8' style='color:var(--muted);padding:18px 14px'>No results.</td></tr>";
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const verdict = r.verdict === "PASS"
+      ? `<span class="badge pass">PASS</span>`
+      : `<span class="badge fail">FAIL</span>`;
+
+    const lufs = r.integrated_lufs != null
+      ? (() => {
+          const v = parseFloat(r.integrated_lufs);
+          const delta = Math.abs(v - (-23));
+          const cls = delta > 3 ? "lufs-bad" : delta > 1 ? "lufs-warn" : "lufs-ok";
+          return `<span class="lufs-val ${cls}">${v.toFixed(1)}</span>`;
+        })()
+      : "<span style='color:var(--muted)'>—</span>";
+
+    const autoFix = r.auto_fixable > 0
+      ? `<span class="badge auto">${r.auto_fixable}</span>` : "0";
+    const manual  = r.needs_human > 0
+      ? `<span class="badge human">${r.needs_human}</span>` : "0";
+
+    const costs = (r.rescue_costs || []).filter(Boolean);
+    const costSummary = costs.length ? costs.slice(0,2).join("; ") : "—";
+
+    const sampleCount = r.loudness_sample_count != null
+      ? r.loudness_sample_count.toLocaleString() : "—";
+
+    return `<tr onclick="openDetail('${r.title_id}', '${(r.title||r.title_id).replace(/'/g,"\\'")}')">
+      <td>${r.title || r.title_id}</td>
+      <td>${verdict}</td>
+      <td>${lufs}</td>
+      <td>${r.failures}</td>
+      <td>${autoFix}</td>
+      <td>${manual}</td>
+      <td style="font-family:var(--mono);font-size:12px">${sampleCount}</td>
+      <td style="color:var(--muted);font-size:12px">${costSummary}</td>
+    </tr>`;
+  }).join("");
+}
+
+// ---- detail panel ----
+async function openDetail(titleId, titleLabel) {
+  document.getElementById("detail-title").textContent = titleLabel;
+  document.getElementById("findings-body").innerHTML = "<tr><td colspan='5' style='color:var(--muted)'>Loading…</td></tr>";
+  document.getElementById("detail-panel").classList.add("open");
+  document.getElementById("overlay").classList.add("open");
+
+  try {
+    const r = await fetch(`/api/title/${encodeURIComponent(titleId)}`);
+    const d = await r.json();
+
+    // Findings table
+    const tbody = document.getElementById("findings-body");
+    tbody.innerHTML = (d.findings || []).map(f => {
+      const status = f.passed
+        ? `<span class="badge pass">PASS</span>`
+        : `<span class="badge fail">FAIL</span>`;
+      const m = f.measured != null ? parseFloat(f.measured).toFixed(2) : "—";
+      const t = f.target != null ? parseFloat(f.target).toFixed(2) : "—";
+      const unit = f.unit || "";
+      return `<tr>
+        <td>${f.check_name}</td>
+        <td style="font-family:var(--mono)">${m} ${unit}</td>
+        <td style="font-family:var(--mono)">${t} ${unit}</td>
+        <td>${status}</td>
+        <td style="color:var(--muted);font-size:11px">${f.rescue_cost || "—"}</td>
+      </tr>`;
+    }).join("");
+
+    // Draw loudness chart
+    drawChart(d.loudness_chart || [], d.sample_count);
+
+  } catch(e) {
+    document.getElementById("findings-body").innerHTML =
+      `<tr><td colspan='5' style='color:var(--fail)'>Error: ${e}</td></tr>`;
+  }
+}
+
+function closeDetail() {
+  document.getElementById("detail-panel").classList.remove("open");
+  document.getElementById("overlay").classList.remove("open");
+}
+
+// ---- loudness chart (canvas) ----
+function drawChart(data, sampleCount) {
+  const canvas = document.getElementById("lufs-chart");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.offsetWidth || 470;
+  const H = 100;
+  canvas.width = W; canvas.height = H;
+
+  ctx.fillStyle = "#0d0f12";
+  ctx.fillRect(0, 0, W, H);
+
+  if (!data.length) return;
+
+  const stVals = data.map(p => p.st).filter(v => v > -70);
+  const minV = Math.min(...stVals, -30);
+  const maxV = Math.max(...stVals, -10);
+  const range = maxV - minV || 1;
+
+  function px(v) { return H - ((v - minV) / range) * H; }
+  function tx(i) { return (i / (data.length - 1)) * W; }
+
+  // Target line at -23 LUFS
+  ctx.strokeStyle = "#3b8bf5";
+  ctx.setLineDash([4, 4]);
+  ctx.lineWidth = 1;
+  const targetY = px(-23);
+  ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(W, targetY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Short-term loudness line
+  ctx.strokeStyle = "#e05252";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  data.forEach((p, i) => {
+    if (p.st < -70) return;
+    i === 0 ? ctx.moveTo(tx(i), px(p.st)) : ctx.lineTo(tx(i), px(p.st));
+  });
+  ctx.stroke();
+
+  // Label
+  ctx.fillStyle = "#6b7585";
+  ctx.font = "10px JetBrains Mono, monospace";
+  ctx.fillText(`${sampleCount} rows  |  target -23 LUFS (blue)  |  short-term (red)`, 6, 14);
+}
+
+// ---- triage ----
+async function runTriage() {
+  const out = document.getElementById("triage-output");
+  out.classList.add("visible");
+  out.textContent = "Querying ClickHouse via mcp-clickhouse MCP and sending to Gemini…";
+  out.className = "triage-output visible spinner";
+
+  try {
+    const r = await fetch("/api/triage", {method: "POST"});
+    const d = await r.json();
+    out.className = "triage-output visible";
+
+    if (d.summary) {
+      let text = `SUMMARY\n${d.summary}\n\n`;
+      text += `Titles: ${d.total_titles}  |  Failing: ${d.failing}  |  Passing: ${d.passing}\n`;
+      text += `Auto-fixable: ${d.auto_fixable}  |  Needs human: ${d.needs_human}\n\n`;
+      if (d.operator_note) text += `OPERATOR NOTE\n${d.operator_note}\n\n`;
+      if (d.rescue_plan) {
+        text += "RESCUE PLAN\n" + "─".repeat(60) + "\n";
+        (d.rescue_plan || []).forEach(p => {
+          text += `#${p.priority}  ${p.title || p.title_id}\n`;
+          text += `  Action:    ${p.action}\n`;
+          if (p.measured_lufs != null) text += `  LUFS:      ${parseFloat(p.measured_lufs).toFixed(1)} (target -23, delta ${parseFloat(p.lufs_delta||0).toFixed(1)} LU)\n`;
+          text += `  Failures:  ${p.failures}\n`;
+          text += `  Rescue:    ${p.rescue_cost}\n`;
+          text += `  Rationale: ${p.rationale}\n\n`;
+        });
+      }
+      if (d.model) text += `\nModel: ${d.model}`;
+      out.textContent = text;
+    } else {
+      out.textContent = JSON.stringify(d, null, 2);
+    }
+  } catch(e) {
+    out.className = "triage-output visible";
+    out.textContent = `Error: ${e}`;
+  }
+}
+
+// ---- MCP log ----
+async function loadMCPLog() {
+  const section = document.getElementById("mcp-section");
+  section.style.display = "block";
+  const container = document.getElementById("mcp-entries");
+  container.textContent = "Loading…";
+
+  try {
+    const r = await fetch("/api/mcp-log");
+    const d = await r.json();
+    if (!d.entries.length) {
+      container.innerHTML = "<div style='color:var(--muted)'>No MCP calls logged yet. Run the rescue plan first.</div>";
+      return;
+    }
+    container.innerHTML = d.entries.map(e =>
+      `<div class="mcp-entry">
+        <span class="mcp-ts">${e.ts}</span>
+        <span class="mcp-tool"> [${e.tool}]</span>
+        <span style="color:var(--muted)"> ${e.elapsed_s}s</span>
+        <div style="color:var(--text);margin-top:4px;word-break:break-all">${
+          (e.arguments?.query || JSON.stringify(e.arguments)).substring(0,200)
+        }</div>
+        <div style="color:var(--muted);margin-top:3px">${e.result_preview.substring(0,300)}</div>
+      </div>`
+    ).join("");
+  } catch(e) {
+    container.innerHTML = `<div style='color:var(--fail)'>Error: ${e}</div>`;
+  }
+}
+
+// ---- init ----
+loadStats();
+loadCatalog();
+</script>
+</body>
+</html>
