@@ -3,535 +3,699 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VAULT: which titles in the catalog would fail delivery today</title>
+<title>VAULT — delivery rejection ledger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* Tokens from DESIGN.md (WIRED design system), used verbatim.
-     Chosen for the subject: VAULT's output is a ranked index of which titles in
-     a catalog would be rejected today. That is a magazine contents page, not a
-     telemetry dashboard, so the system is a strict black-on-white editorial duet
-     with a tall serif display voice and a single link blue. The three WIRED
-     faces are proprietary; the design file names the substitutes used here
-     (Playfair Display for display, Source Serif for reading text, Inter for
-     utility). Tokens live here once, never inline on elements. */
-  :root{
-    --primary:#000000; --on-primary:#ffffff;
-    --ink:#000000; --ink-soft:#1a1a1a; --body:#757575;
-    --hairline:#e0e0e0; --canvas:#ffffff; --canvas-soft:#f5f5f5;
-    --link:#057dbc;
-    --fail:#c81e1e; --pass:#1a7f37; --warn:#a16207;
+/* WIRED design system tokens — white canvas, black ink, one link blue, fail red.
+   Playfair for display, Source Serif for reading, Inter for utility, JetBrains Mono
+   for every number. No cards, no pills, no dark mode. */
+:root {
+  --ink:        #000000;
+  --ink-soft:   #1a1a1a;
+  --body:       #757575;
+  --hairline:   #e0e0e0;
+  --canvas:     #ffffff;
+  --canvas-soft:#f5f5f5;
+  --link:       #057dbc;
+  --fail:       #c81e1e;
+  --pass:       #1a7f37;
+  --warn:       #a16207;
 
-    --s-xs:8px; --s-sm:12px; --s-base:16px; --s-md:20px;
-    --s-lg:24px; --s-xl:32px; --s-xxl:48px; --s-section:80px;
+  --display: 'Playfair Display', 'Times New Roman', Georgia, serif;
+  --read:    'Source Serif 4', Georgia, serif;
+  --sans:    'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
 
-    --display:'Playfair Display', 'Times New Roman', Georgia, serif;
-    --read:'Source Serif 4', Georgia, serif;
-    --sans:'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  }
-  *{box-sizing:border-box; margin:0; padding:0}
-  body{
-    background:var(--canvas); color:var(--ink-soft);
-    font:400 17px/1.45 var(--sans);
-    -webkit-font-smoothing:antialiased;
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* The masthead is the brand. Tall narrow serif, black, no letterspacing
-     tricks and no accent colour: WIRED earns attention with type, not voltage. */
-  header{
-    border-bottom:2px solid var(--ink);
-    padding:var(--s-xl) var(--s-xl) var(--s-md);
-  }
-  .masthead{
-    font-family:var(--display); font-size:56px; font-weight:400;
-    line-height:1.0; letter-spacing:-1px; color:var(--ink);
-  }
-  .standfirst{
-    font-family:var(--read); font-size:19px; line-height:1.5;
-    color:var(--body); max-width:62ch; margin-top:var(--s-sm);
-  }
+body {
+  background: var(--canvas);
+  color: var(--ink-soft);
+  font: 400 16px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
 
-  main{max-width:1160px; margin:0 auto; padding:var(--s-xl)}
+/* ── Masthead ─────────────────────────────────── */
+header {
+  border-bottom: 2px solid var(--ink);
+  padding: 28px 40px 20px;
+}
+.masthead {
+  font-family: var(--display);
+  font-size: 64px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -1px;
+  color: var(--ink);
+}
+.standfirst {
+  font-family: var(--read);
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--body);
+  max-width: 62ch;
+  margin-top: 8px;
+}
 
-  h2{
-    font-family:var(--display); font-size:32px; font-weight:400;
-    line-height:1.1; color:var(--ink); margin-bottom:var(--s-base);
-  }
-  h3{
-    font-family:var(--display); font-size:22px; font-weight:400;
-    line-height:1.2; color:var(--ink);
-  }
-  .kicker{
-    font:700 12px/1.4 var(--sans); letter-spacing:1.2px;
-    text-transform:uppercase; color:var(--ink);
-  }
-  .dek{font-family:var(--read); font-size:17px; line-height:1.55; color:var(--body); max-width:70ch}
+/* ── Layout ───────────────────────────────────── */
+main { max-width: 1240px; margin: 0 auto; padding: 0 40px 80px; }
 
-  /* Sections are separated by rules, not by cards floating on a tinted page. */
-  section{padding:var(--s-xl) 0; border-bottom:1px solid var(--hairline)}
-  section:last-of-type{border-bottom:0}
-  .card, .panel{
-    background:var(--canvas); border:1px solid var(--hairline);
-    padding:var(--s-lg);
-  }
+/* ── Three numbers, baselined, no boxes ─────── */
+.numbers-band {
+  display: flex;
+  align-items: baseline;
+  gap: 48px;
+  padding: 32px 0 24px;
+  border-bottom: 1px solid var(--hairline);
+}
+.number-item { display: flex; flex-direction: column; }
+.number-value {
+  font-family: var(--display);
+  font-size: 52px;
+  font-weight: 400;
+  line-height: 1;
+  color: var(--ink);
+}
+.number-value.is-fail { color: var(--fail); }
+.number-value.is-pass { color: var(--pass); }
+.number-label {
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--body);
+  margin-top: 6px;
+}
+.numbers-sep {
+  width: 1px;
+  height: 44px;
+  background: var(--hairline);
+  align-self: center;
+}
 
-  button{
-    background:var(--primary); color:var(--on-primary); border:0;
-    padding:13px 22px; height:44px;
-    font:700 13px/1 var(--sans); letter-spacing:1.2px; text-transform:uppercase;
-    cursor:pointer; transition:opacity .15s ease;
-  }
-  button:hover:not(:disabled){opacity:.82}
-  button:disabled{background:var(--hairline); color:var(--body); cursor:default}
+/* ── Controls row ────────────────────────────── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 0;
+  flex-wrap: wrap;
+}
+.controls input[type="text"] {
+  border: none;
+  border-bottom: 1px solid var(--ink);
+  padding: 6px 4px;
+  font: 400 14px/1 var(--sans);
+  color: var(--ink);
+  background: transparent;
+  width: 200px;
+}
+.controls input[type="text"]:focus {
+  outline: none;
+  border-bottom: 2px solid var(--link);
+}
+.controls input[type="text"]::placeholder { color: var(--body); }
+.btn-sort {
+  background: none;
+  border: none;
+  border-bottom: 1px solid transparent;
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--body);
+  cursor: pointer;
+  padding: 3px 0;
+}
+.btn-sort:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.btn-sort.active { color: var(--ink); border-bottom-color: var(--ink); }
+.ctrl-sep { color: var(--hairline); font-size: 14px; }
+.btn-triage {
+  background: none;
+  border: none;
+  font: 400 14px/1.4 var(--sans);
+  color: var(--link);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+  margin-left: auto;
+}
+.btn-triage:hover { color: var(--ink); }
+.btn-triage:disabled { color: var(--body); cursor: default; text-decoration: none; }
 
-  input, select{
-    background:var(--canvas); border:1px solid var(--ink);
-    padding:12px 14px; font:400 16px/1 var(--sans); color:var(--ink);
-  }
-  input:focus, select:focus{outline:2px solid var(--link); outline-offset:1px}
+/* ── Catalog table ───────────────────────────── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
 
-  /* The ranked index. This is the product, so it is set as a contents table:
-     rules between rows, no zebra fill, numerals aligned. */
-  table{width:100%; border-collapse:collapse; font-size:16px}
-  th{
-    text-align:left; font:700 12px/1.4 var(--sans); letter-spacing:1.2px;
-    text-transform:uppercase; color:var(--ink);
-    padding:10px 8px; border-bottom:2px solid var(--ink);
-  }
-  td{padding:14px 8px; border-bottom:1px solid var(--hairline); vertical-align:top; color:var(--ink-soft)}
-  tr:last-child td{border-bottom:0}
-  .title-cell{font-family:var(--read); font-size:18px; line-height:1.35}
+thead th {
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--body);
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--ink);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+thead th:hover { color: var(--ink); }
+thead th.th-r { text-align: right; }
 
-  .num, .mono{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:15px}
-  .stat{font-family:var(--display); font-size:56px; font-weight:400; line-height:1; color:var(--ink)}
-  .fail{color:var(--fail); font-weight:600}
-  .pass{color:var(--pass); font-weight:600}
-  .warn{color:var(--warn); font-weight:600}
-  .muted{color:var(--body)}
+tbody tr.data-row {
+  cursor: pointer;
+  border-bottom: 1px solid var(--hairline);
+}
+tbody tr.data-row:hover td,
+tbody tr.data-row.expanded td { background: var(--canvas-soft); }
 
-  a{color:var(--link); text-decoration:none}
-  a:hover{text-decoration:underline}
+td {
+  padding: 13px 10px;
+  vertical-align: top;
+  color: var(--ink-soft);
+}
+td.td-rank {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--body);
+  text-align: right;
+  width: 36px;
+}
+td.td-title {
+  font-family: var(--read);
+  font-size: 18px;
+  line-height: 1.3;
+  color: var(--ink);
+  max-width: 400px;
+}
+td.td-lufs, td.td-num {
+  font-family: var(--mono);
+  font-size: 15px;
+  text-align: right;
+  white-space: nowrap;
+}
+td.td-rescue { font-size: 13px; color: var(--body); }
+td.td-verdict {
+  font: 700 12px/1.4 var(--sans);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
 
-  .note{
-    border-left:3px solid var(--ink); padding-left:var(--s-base);
-    font-family:var(--read); font-size:17px; line-height:1.55; color:var(--ink-soft);
-  }
-  .repro, code, pre{
-    font-family:var(--mono); font-size:14px; line-height:1.55;
-    background:var(--canvas-soft); color:var(--ink-soft);
-  }
-  .repro, pre{padding:var(--s-base); overflow-x:auto; white-space:pre; border:1px solid var(--hairline)}
-  .empty{color:var(--body); font-family:var(--read); font-size:17px}
+.lufs-fail { color: var(--fail); }
+.lufs-warn { color: var(--warn); }
+.lufs-ok   { color: var(--pass); }
+.lufs-none { color: var(--body); }
+.verdict-fail { color: var(--fail); }
+.verdict-pass { color: var(--pass); }
 
-  /* Classes carried over from the previous markup, restated in WIRED tokens
-     rather than deleted, so no element silently loses its styling. */
-  .subtitle{font-family:var(--read); font-size:19px; line-height:1.5;
-            color:var(--body); max-width:62ch; display:block; margin-top:var(--s-sm)}
-  .stats-bar{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
-             gap:var(--s-lg); padding:var(--s-xl) 0; border-bottom:2px solid var(--ink)}
-  .stat-card .label{font:700 12px/1.4 var(--sans); letter-spacing:1.2px;
-                    text-transform:uppercase; color:var(--body)}
-  .stat-card .value{font-family:var(--display); font-size:48px; font-weight:400;
-                    line-height:1.05; color:var(--ink); margin-top:6px}
-  .value.accent{color:var(--ink)} .value.fail{color:var(--fail)} .value.pass{color:var(--pass)}
-  .controls{display:flex; gap:var(--s-sm); flex-wrap:wrap; align-items:center;
-            padding:var(--s-lg) 0}
-  button.primary{background:var(--primary); color:var(--on-primary)}
-  .scan-note{font-family:var(--read); font-size:16px; color:var(--body); margin-top:var(--s-sm)}
-  .triage-section, .mcp-section, .chart-wrap, .table-wrap{padding:var(--s-xl) 0;
-            border-bottom:1px solid var(--hairline)}
-  .table-wrap{overflow-x:auto}
-  .findings-table{width:100%; border-collapse:collapse; font-size:16px}
-  .triage-output{font-family:var(--read); font-size:17px; line-height:1.6; color:var(--ink-soft)}
+/* ── Accordion expand row ────────────────────── */
+tr.expand-row { display: none; }
+tr.expand-row.open { display: table-row; }
+tr.expand-row td {
+  padding: 0;
+  background: var(--canvas-soft);
+  border-bottom: 2px solid var(--ink);
+}
+.expand-inner { padding: 24px 40px 28px; }
+.expand-title {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+.expand-meta {
+  font: 400 13px/1.4 var(--mono);
+  color: var(--body);
+  margin-bottom: 10px;
+}
 
-  /* Verdict badges: WIRED has no pill-chip system, so these are set as small
-     uppercase labels with a rule, which is how the magazine tags a section. */
-  .badge{display:inline-block; font:700 11px/1 var(--sans); letter-spacing:1.2px;
-         text-transform:uppercase; padding:5px 8px; border:1px solid currentColor}
-  .badge.pass{color:var(--pass)} .badge.fail{color:var(--fail)}
-  .badge.auto{color:var(--link)} .badge.human{color:var(--warn)}
+canvas.lufs-chart {
+  display: block;
+  width: 100%;
+  height: 72px;
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  margin-bottom: 18px;
+}
 
-  .mcp-entry{border-left:2px solid var(--hairline); padding-left:var(--s-base);
-             margin-bottom:var(--s-base)}
-  .mcp-tool{font-family:var(--mono); font-size:14px; color:var(--ink); font-weight:500}
-  .mcp-ts{font-family:var(--mono); font-size:13px; color:var(--body)}
+/* Findings sub-table */
+.findings-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0;
+}
+.findings-table th {
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--body);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ink);
+  text-align: left;
+}
+.findings-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+  color: var(--ink-soft);
+  background: transparent;
+}
+.findings-table tr:last-child td { border-bottom: 0; }
+.f-check { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+.f-meas  { font-family: var(--mono); font-size: 13px; }
+.f-pass  { color: var(--pass); font: 700 11px/1.4 var(--sans); letter-spacing: 1px; text-transform: uppercase; }
+.f-fail  { color: var(--fail); font: 700 11px/1.4 var(--sans); letter-spacing: 1px; text-transform: uppercase; }
+.f-rescue { font-size: 12px; color: var(--body); }
+.f-detail { font-size: 12px; color: var(--body); max-width: 280px; }
 
-  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
-           align-items:center; justify-content:center; padding:var(--s-lg); z-index:50}
-  .overlay.open{display:flex}
-  .detail-panel{background:var(--canvas); border:2px solid var(--ink);
-                max-width:860px; width:100%; max-height:84vh; overflow-y:auto;
-                padding:var(--s-xl)}
-  .detail-title{font-family:var(--display); font-size:32px; font-weight:400;
-                line-height:1.1; color:var(--ink); margin-bottom:var(--s-base)}
-  .detail-close{background:transparent; color:var(--ink); border:1px solid var(--ink);
-                height:36px; padding:0 14px}
+/* ── Triage output ───────────────────────────── */
+.triage-out {
+  display: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  background: var(--canvas-soft);
+  border: 1px solid var(--hairline);
+  padding: 16px 20px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  margin: 16px 0 0;
+}
+.triage-out.visible { display: block; }
 
+/* ── MCP footnote ────────────────────────────── */
+.mcp-footnote {
+  border-top: 1px solid var(--hairline);
+  margin-top: 56px;
+  padding-top: 14px;
+}
+details > summary {
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--body);
+  cursor: pointer;
+  list-style: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: "+ ";
+  font-family: var(--mono);
+}
+details[open] > summary::before { content: "- "; }
+details > summary:hover { color: var(--ink); }
+
+.mcp-entries { margin-top: 14px; }
+.mcp-entry {
+  border-left: 2px solid var(--hairline);
+  padding-left: 14px;
+  margin-bottom: 14px;
+}
+.mcp-tool { font-family: var(--mono); font-size: 13px; color: var(--ink); font-weight: 500; }
+.mcp-ts   { font-family: var(--mono); font-size: 12px; color: var(--body); }
+.mcp-q    { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); margin-top: 4px; word-break: break-all; }
+.mcp-res  { font-family: var(--mono); font-size: 12px; color: var(--body); margin-top: 3px; }
+
+.empty-state { color: var(--body); font-family: var(--read); font-size: 17px; padding: 28px 0; }
 </style>
 </head>
 <body>
 
 <header>
   <h1 class="masthead">VAULT</h1>
-  <span class="subtitle">Which titles in a film catalog would fail delivery today, and what each one costs to rescue. Every row is a machine measurement, not an estimate.</span>
+  <p class="standfirst">Which titles in this archive would be rejected by the delivery spec today, ranked by severity. Every row is a machine measurement, not an estimate.</p>
 </header>
 
 <main>
 
-  <!-- Stats bar -->
-  <div class="stats-bar" id="stats-bar">
-    <div class="stat-card">
-      <div class="label">Loudness rows</div>
-      <div class="value accent" id="s-rows">…</div>
+  <!-- Three numbers baselined, no cards -->
+  <div class="numbers-band">
+    <div class="number-item">
+      <span class="number-value" id="n-titles">—</span>
+      <span class="number-label">Titles scanned</span>
     </div>
-    <div class="stat-card">
-      <div class="label">Titles scanned</div>
-      <div class="value accent" id="s-titles">…</div>
+    <div class="numbers-sep"></div>
+    <div class="number-item">
+      <span class="number-value is-fail" id="n-fail">—</span>
+      <span class="number-label">Failing delivery</span>
     </div>
-    <div class="stat-card">
-      <div class="label">Failing delivery</div>
-      <div class="value fail" id="s-fail">…</div>
+    <div class="numbers-sep"></div>
+    <div class="number-item">
+      <span class="number-value" id="n-auto">—</span>
+      <span class="number-label">Pass after auto-repair</span>
     </div>
-    <div class="stat-card">
-      <div class="label">Delivery ready</div>
-      <div class="value pass" id="s-pass">…</div>
-    </div>
-    <div class="stat-card">
-      <div class="label">Auto-fixable</div>
-      <div class="value" id="s-auto">…</div>
-    </div>
-  </div>
-
-  <div class="scan-note" id="scan-note">
-    Scan window: first 2 minutes of each title (stated honestly — not a full scan).
-    ebur128 emits ~10 loudness rows/sec; a full 28,423-title catalog would produce ~27M rows.
   </div>
 
   <!-- Controls -->
   <div class="controls">
-    <input type="text" id="search" placeholder="Filter titles…" oninput="applyFilter()">
-    <button onclick="sortBy('failures', true)">Sort by failures</button>
-    <button onclick="sortBy('integrated_lufs', true)">Sort by LUFS</button>
-    <button onclick="sortBy('verdict', false)">Sort by verdict</button>
-    <button onclick="loadCatalog()">Refresh</button>
+    <input type="text" id="search" placeholder="Filter titles" oninput="applyFilter()">
+    <button class="btn-sort active" id="s-failures" onclick="sortBy('failures', true, this)">Failures</button>
+    <span class="ctrl-sep">|</span>
+    <button class="btn-sort" id="s-lufs" onclick="sortBy('integrated_lufs', true, this)">LUFS</button>
+    <span class="ctrl-sep">|</span>
+    <button class="btn-sort" id="s-verdict" onclick="sortBy('verdict', false, this)">Verdict</button>
+    <span class="ctrl-sep">|</span>
+    <button class="btn-sort" id="s-title" onclick="sortBy('title', false, this)">A–Z</button>
+    <button class="btn-triage" id="btn-triage" onclick="runTriage()">Re-triage selected title</button>
   </div>
 
-  <!-- Catalog table -->
+  <!-- Catalog table — the product -->
   <div class="table-wrap">
     <table id="catalog-table">
       <thead>
         <tr>
-          <th onclick="sortBy('title', false)">Title</th>
-          <th onclick="sortBy('verdict', false)">Verdict</th>
-          <th onclick="sortBy('integrated_lufs', true)">LUFS</th>
-          <th onclick="sortBy('failures', true)">Failures</th>
-          <th onclick="sortBy('auto_fixable', true)">Auto-fix</th>
-          <th onclick="sortBy('needs_human', true)">Manual</th>
-          <th onclick="sortBy('loudness_sample_count', true)">Loudness rows</th>
-          <th>Rescue costs</th>
+          <th class="th-r" style="cursor:default">#</th>
+          <th onclick="sortBy('title', false, document.getElementById('s-title'))">Title</th>
+          <th class="th-r" onclick="sortBy('integrated_lufs', true, document.getElementById('s-lufs'))">Integrated LUFS vs -23</th>
+          <th class="th-r" onclick="sortBy('failures', true, document.getElementById('s-failures'))">Failures</th>
+          <th onclick="sortBy('needs_human', true, null)">Rescue</th>
+          <th onclick="sortBy('verdict', false, document.getElementById('s-verdict'))">Verdict</th>
         </tr>
       </thead>
       <tbody id="catalog-body">
-        <tr><td colspan="8" style="color:var(--muted);padding:18px 14px">Loading…</td></tr>
+        <tr><td colspan="6" class="empty-state">Loading catalog…</td></tr>
       </tbody>
     </table>
   </div>
 
-  <!-- Triage section -->
-  <div class="triage-section">
-    <h2>Gemini rescue plan <span style="color:var(--muted);font-weight:400;font-size:12px">(queries ClickHouse via mcp-clickhouse MCP)</span></h2>
-    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-      <button class="primary" onclick="runTriage()">Generate rescue plan</button>
-      <button onclick="loadMCPLog()">Show MCP tool log</button>
-    </div>
-    <div class="triage-output" id="triage-output"></div>
+  <!-- Triage output (inline, hidden until triggered) -->
+  <div class="triage-out" id="triage-output"></div>
 
-    <div class="mcp-section" id="mcp-section" style="display:none">
-      <h2 style="font-size:13px;color:var(--muted);margin-bottom:10px">
-        MCP tool calls (proof of mcp-clickhouse usage)
-      </h2>
-      <div id="mcp-entries"></div>
-    </div>
+  <!-- MCP log — footnote, collapsed -->
+  <div class="mcp-footnote">
+    <details id="mcp-details" ontoggle="handleMcpToggle(this)">
+      <summary>Queries the agent ran (MCP log)</summary>
+      <div class="mcp-entries" id="mcp-entries">
+        <div style="color:var(--body);font-size:14px;margin-top:10px">Open to load.</div>
+      </div>
+    </details>
   </div>
 
 </main>
-
-<!-- Detail panel -->
-<div class="overlay" id="overlay" onclick="closeDetail()"></div>
-<div class="detail-panel" id="detail-panel">
-  <span class="detail-close" onclick="closeDetail()">×</span>
-  <div class="detail-title" id="detail-title"></div>
-  <div class="chart-wrap"><canvas id="lufs-chart" height="100"></canvas></div>
-  <table class="findings-table" id="findings-table">
-    <thead>
-      <tr><th>Check</th><th>Measured</th><th>Target</th><th>Status</th><th>Rescue</th></tr>
-    </thead>
-    <tbody id="findings-body"></tbody>
-  </table>
-</div>
 
 <script>
 let allRows   = [];
 let sortKey   = "failures";
 let sortDesc  = true;
 let filterStr = "";
+let expandedId = null;
+let mcpLoaded  = false;
 
-// ---- load stats ----
+// ── Stats ──────────────────────────────────────
 async function loadStats() {
   try {
-    const r = await fetch("/api/stats");
-    const d = await r.json();
-    document.getElementById("s-rows").textContent   = d.loudness_sample_rows.toLocaleString();
-    document.getElementById("s-titles").textContent = d.title_count;
-    document.getElementById("s-fail").textContent   = d.failing;
-    document.getElementById("s-pass").textContent   = d.passing;
-    document.getElementById("s-auto").textContent   = d.auto_fixable;
-    if (d.note) {
-      document.getElementById("scan-note").textContent = d.note;
-    }
-  } catch(e) {
-    console.error("stats error", e);
-  }
+    const d = await fetch("/api/stats").then(r => r.json());
+    document.getElementById("n-titles").textContent = (d.title_count ?? "—").toLocaleString();
+    document.getElementById("n-fail").textContent   = (d.failing    ?? "—").toLocaleString();
+    document.getElementById("n-auto").textContent   = (d.auto_fixable ?? "—").toLocaleString();
+  } catch(e) { console.error("stats", e); }
 }
 
-// ---- load catalog ----
+// ── Catalog ────────────────────────────────────
 async function loadCatalog() {
   const tbody = document.getElementById("catalog-body");
-  tbody.innerHTML = "<tr><td colspan='8' style='color:var(--muted);padding:18px 14px'>Loading…</td></tr>";
+  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Loading catalog…</td></tr>`;
   try {
-    const r = await fetch("/api/catalog");
-    allRows = await r.json();
+    allRows = await fetch("/api/catalog").then(r => r.json());
     renderTable();
   } catch(e) {
-    tbody.innerHTML = `<tr><td colspan='8' style='color:var(--fail)'>Error: ${e}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--fail);padding:24px 0;font-size:15px">Error loading catalog: ${e}</td></tr>`;
   }
 }
 
 function applyFilter() {
-  filterStr = document.getElementById("search").value.toLowerCase();
+  filterStr  = document.getElementById("search").value.toLowerCase();
+  expandedId = null;
   renderTable();
 }
 
-function sortBy(key, desc) {
-  sortKey = key; sortDesc = desc;
+function sortBy(key, desc, btn) {
+  sortKey    = key;
+  sortDesc   = desc;
+  expandedId = null;
+  document.querySelectorAll(".btn-sort").forEach(b => b.classList.remove("active"));
+  if (btn) btn.classList.add("active");
   renderTable();
+}
+
+function lufsSpan(lufs) {
+  if (lufs == null) return `<span class="lufs-none">—</span>`;
+  const v     = parseFloat(lufs);
+  const delta = Math.abs(v - (-23));
+  const cls   = delta > 3 ? "lufs-fail" : delta > 1 ? "lufs-warn" : "lufs-ok";
+  const sign  = v - (-23) > 0 ? "+" : "";
+  return `<span class="${cls}">${v.toFixed(1)}</span><span style="color:var(--body);font-size:12px"> (${sign}${(v-(-23)).toFixed(1)})</span>`;
+}
+
+function rescueText(row) {
+  if (!row.failures) return "—";
+  const a = row.auto_fixable || 0;
+  const h = row.needs_human  || 0;
+  if (h > 0 && a > 0) return `${a} auto, ${h} human`;
+  if (h > 0) return `${h} human`;
+  if (a > 0) return `${a} auto`;
+  return "—";
 }
 
 function renderTable() {
-  const rows = allRows
-    .filter(r => !filterStr || (r.title||r.title_id).toLowerCase().includes(filterStr))
+  const filtered = allRows
+    .filter(r => !filterStr || (r.title || r.title_id).toLowerCase().includes(filterStr))
     .sort((a, b) => {
       let av = a[sortKey], bv = b[sortKey];
-      if (av === null || av === undefined) av = sortDesc ? -Infinity : Infinity;
-      if (bv === null || bv === undefined) bv = sortDesc ? -Infinity : Infinity;
+      if (av == null) av = sortDesc ? -Infinity : Infinity;
+      if (bv == null) bv = sortDesc ? -Infinity : Infinity;
       if (typeof av === "string") return sortDesc ? bv.localeCompare(av) : av.localeCompare(bv);
       return sortDesc ? bv - av : av - bv;
     });
 
   const tbody = document.getElementById("catalog-body");
-  if (!rows.length) {
-    tbody.innerHTML = "<tr><td colspan='8' style='color:var(--muted);padding:18px 14px'>No results.</td></tr>";
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No titles match "${filterStr || "current filter"}".</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = rows.map(r => {
+  tbody.innerHTML = filtered.map((r, i) => {
+    const rank   = i + 1;
+    const tid    = r.title_id;
+    const label  = (r.title || r.title_id).replace(/'/g, "\\'");
+    const isExp  = expandedId === tid;
     const verdict = r.verdict === "PASS"
-      ? `<span class="badge pass">PASS</span>`
-      : `<span class="badge fail">FAIL</span>`;
+      ? `<span class="verdict-pass">PASS</span>`
+      : `<span class="verdict-fail">FAIL</span>`;
 
-    const lufs = r.integrated_lufs != null
-      ? (() => {
-          const v = parseFloat(r.integrated_lufs);
-          const delta = Math.abs(v - (-23));
-          const cls = delta > 3 ? "lufs-bad" : delta > 1 ? "lufs-warn" : "lufs-ok";
-          return `<span class="lufs-val ${cls}">${v.toFixed(1)}</span>`;
-        })()
-      : "<span style='color:var(--muted)'>—</span>";
-
-    const autoFix = r.auto_fixable > 0
-      ? `<span class="badge auto">${r.auto_fixable}</span>` : "0";
-    const manual  = r.needs_human > 0
-      ? `<span class="badge human">${r.needs_human}</span>` : "0";
-
-    const costs = (r.rescue_costs || []).filter(Boolean);
-    const costSummary = costs.length ? costs.slice(0,2).join("; ") : "—";
-
-    const sampleCount = r.loudness_sample_count != null
-      ? r.loudness_sample_count.toLocaleString() : "—";
-
-    return `<tr onclick="openDetail('${r.title_id}', '${(r.title||r.title_id).replace(/'/g,"\\'")}')">
-      <td>${r.title || r.title_id}</td>
-      <td>${verdict}</td>
-      <td>${lufs}</td>
-      <td>${r.failures}</td>
-      <td>${autoFix}</td>
-      <td>${manual}</td>
-      <td style="font-family:var(--mono);font-size:12px">${sampleCount}</td>
-      <td style="color:var(--muted);font-size:12px">${costSummary}</td>
-    </tr>`;
+    return `
+<tr class="data-row${isExp ? " expanded" : ""}" onclick="toggleExpand('${tid}', '${label}')">
+  <td class="td-rank">${rank}</td>
+  <td class="td-title">${r.title || r.title_id}</td>
+  <td class="td-lufs">${lufsSpan(r.integrated_lufs)}</td>
+  <td class="td-num">${r.failures ?? "—"}</td>
+  <td class="td-rescue">${rescueText(r)}</td>
+  <td class="td-verdict">${verdict}</td>
+</tr>
+<tr class="expand-row${isExp ? " open" : ""}" id="exp-${tid.replace(/[^a-z0-9]/gi, "_")}">
+  <td colspan="6">
+    <div class="expand-inner" id="inner-${tid.replace(/[^a-z0-9]/gi, "_")}">
+      <div style="color:var(--body);font-family:var(--mono);font-size:13px">Loading…</div>
+    </div>
+  </td>
+</tr>`;
   }).join("");
-}
 
-// ---- detail panel ----
-async function openDetail(titleId, titleLabel) {
-  document.getElementById("detail-title").textContent = titleLabel;
-  document.getElementById("findings-body").innerHTML = "<tr><td colspan='5' style='color:var(--muted)'>Loading…</td></tr>";
-  document.getElementById("detail-panel").classList.add("open");
-  document.getElementById("overlay").classList.add("open");
-
-  try {
-    const r = await fetch(`/api/title/${encodeURIComponent(titleId)}`);
-    const d = await r.json();
-
-    // Findings table
-    const tbody = document.getElementById("findings-body");
-    tbody.innerHTML = (d.findings || []).map(f => {
-      const status = f.passed
-        ? `<span class="badge pass">PASS</span>`
-        : `<span class="badge fail">FAIL</span>`;
-      const m = f.measured != null ? parseFloat(f.measured).toFixed(2) : "—";
-      const t = f.target != null ? parseFloat(f.target).toFixed(2) : "—";
-      const unit = f.unit || "";
-      return `<tr>
-        <td>${f.check_name}</td>
-        <td style="font-family:var(--mono)">${m} ${unit}</td>
-        <td style="font-family:var(--mono)">${t} ${unit}</td>
-        <td>${status}</td>
-        <td style="color:var(--muted);font-size:11px">${f.rescue_cost || "—"}</td>
-      </tr>`;
-    }).join("");
-
-    // Draw loudness chart
-    drawChart(d.loudness_chart || [], d.sample_count);
-
-  } catch(e) {
-    document.getElementById("findings-body").innerHTML =
-      `<tr><td colspan='5' style='color:var(--fail)'>Error: ${e}</td></tr>`;
+  if (expandedId) {
+    const safe = expandedId.replace(/[^a-z0-9]/gi, "_");
+    const inner = document.getElementById(`inner-${safe}`);
+    if (inner && inner.textContent.trim() === "Loading…") {
+      loadDetail(expandedId);
+    }
   }
 }
 
-function closeDetail() {
-  document.getElementById("detail-panel").classList.remove("open");
-  document.getElementById("overlay").classList.remove("open");
+async function toggleExpand(titleId, label) {
+  if (expandedId === titleId) {
+    expandedId = null;
+    renderTable();
+    return;
+  }
+  expandedId = titleId;
+  renderTable();
+  await loadDetail(titleId);
 }
 
-// ---- loudness chart (canvas) ----
-function drawChart(data, sampleCount) {
-  const canvas = document.getElementById("lufs-chart");
-  const ctx = canvas.getContext("2d");
-  const W = canvas.offsetWidth || 470;
-  const H = 100;
-  canvas.width = W; canvas.height = H;
+async function loadDetail(titleId) {
+  const safe  = titleId.replace(/[^a-z0-9]/gi, "_");
+  const inner = document.getElementById(`inner-${safe}`);
+  if (!inner) return;
 
-  ctx.fillStyle = "#0d0f12";
+  try {
+    const d = await fetch(`/api/title/${encodeURIComponent(titleId)}`).then(r => r.json());
+
+    const fRows = (d.findings || []).map(f => {
+      const m    = f.measured != null ? `${parseFloat(f.measured).toFixed(2)} ${f.unit || ""}`.trim() : "—";
+      const t    = f.target   != null ? `${parseFloat(f.target).toFixed(2)} ${f.unit || ""}`.trim()   : "—";
+      const stat = f.passed
+        ? `<span class="f-pass">pass</span>`
+        : `<span class="f-fail">fail</span>`;
+      const detail = f.detail ? `<div class="f-detail">${f.detail}</div>` : "";
+      return `<tr>
+        <td class="f-check">${f.check_name}</td>
+        <td class="f-meas">${m}</td>
+        <td class="f-meas">${t}</td>
+        <td>${stat}</td>
+        <td class="f-rescue">${f.rescue_cost || "—"}${detail}</td>
+      </tr>`;
+    }).join("");
+
+    const sampleNote = d.sample_count
+      ? `${d.sample_count.toLocaleString()} rows — short-term LUFS (red) vs target -23 LUFS (blue)`
+      : "No loudness data";
+
+    inner.innerHTML = `
+<div class="expand-title">${titleId}</div>
+<div class="expand-meta">${sampleNote}</div>
+<canvas class="lufs-chart" id="chart-${safe}"></canvas>
+<table class="findings-table">
+  <thead><tr>
+    <th>Check</th><th>Measured</th><th>Target</th><th>Status</th><th>Rescue</th>
+  </tr></thead>
+  <tbody>${fRows || `<tr><td colspan="5" class="empty-state">No findings.</td></tr>`}</tbody>
+</table>`;
+
+    // Wait one frame for canvas to get layout width
+    requestAnimationFrame(() => drawChart(`chart-${safe}`, d.loudness_chart || []));
+  } catch(e) {
+    if (inner) inner.innerHTML = `<div style="color:var(--fail);font-size:14px;padding:12px 0">Error: ${e}</div>`;
+  }
+}
+
+// ── Loudness chart (light canvas) ─────────────
+function drawChart(canvasId, data) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 700;
+  const H = 72;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 
   if (!data.length) return;
 
   const stVals = data.map(p => p.st).filter(v => v > -70);
-  const minV = Math.min(...stVals, -30);
-  const maxV = Math.max(...stVals, -10);
+  if (!stVals.length) return;
+
+  const minV  = Math.min(...stVals, -30);
+  const maxV  = Math.max(...stVals, -10);
   const range = maxV - minV || 1;
+  const py    = v => H - ((v - minV) / range) * H;
+  const tx    = i => (i / Math.max(data.length - 1, 1)) * W;
 
-  function px(v) { return H - ((v - minV) / range) * H; }
-  function tx(i) { return (i / (data.length - 1)) * W; }
-
-  // Target line at -23 LUFS
-  ctx.strokeStyle = "#3b8bf5";
+  // Hairline at -23 LUFS (target)
+  const ty = py(-23);
+  ctx.strokeStyle = "#057dbc";
+  ctx.lineWidth   = 1;
   ctx.setLineDash([4, 4]);
-  ctx.lineWidth = 1;
-  const targetY = px(-23);
-  ctx.beginPath(); ctx.moveTo(0, targetY); ctx.lineTo(W, targetY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, ty); ctx.lineTo(W, ty); ctx.stroke();
   ctx.setLineDash([]);
 
-  // Short-term loudness line
-  ctx.strokeStyle = "#e05252";
-  ctx.lineWidth = 1.5;
+  // Short-term LUFS line
+  ctx.strokeStyle = "#c81e1e";
+  ctx.lineWidth   = 1.5;
   ctx.beginPath();
+  let first = true;
   data.forEach((p, i) => {
     if (p.st < -70) return;
-    i === 0 ? ctx.moveTo(tx(i), px(p.st)) : ctx.lineTo(tx(i), px(p.st));
+    const x = tx(i), y = py(p.st);
+    first ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    first = false;
   });
   ctx.stroke();
 
-  // Label
-  ctx.fillStyle = "#6b7585";
-  ctx.font = "10px JetBrains Mono, monospace";
-  ctx.fillText(`${sampleCount} rows  |  target -23 LUFS (blue)  |  short-term (red)`, 6, 14);
+  // Label -23
+  ctx.fillStyle = "#757575";
+  ctx.font      = "10px 'JetBrains Mono', monospace";
+  const labelY  = ty < 18 ? ty + 14 : ty - 4;
+  ctx.fillText("-23 LUFS", W - 64, labelY);
 }
 
-// ---- triage ----
+// ── Triage ─────────────────────────────────────
 async function runTriage() {
+  const btn = document.getElementById("btn-triage");
   const out = document.getElementById("triage-output");
-  out.classList.add("visible");
-  out.textContent = "Querying ClickHouse via mcp-clickhouse MCP and sending to Gemini…";
-  out.className = "triage-output visible spinner";
+  btn.disabled    = true;
+  btn.textContent = "Running…";
+  out.className   = "triage-out visible";
+  out.textContent = "Querying ClickHouse via mcp-clickhouse and sending to Gemini…";
 
   try {
-    const r = await fetch("/api/triage", {method: "POST"});
-    const d = await r.json();
-    out.className = "triage-output visible";
-
+    const d = await fetch("/api/triage", { method: "POST" }).then(r => r.json());
+    let text = "";
     if (d.summary) {
-      let text = `SUMMARY\n${d.summary}\n\n`;
+      text += `SUMMARY\n${d.summary}\n\n`;
       text += `Titles: ${d.total_titles}  |  Failing: ${d.failing}  |  Passing: ${d.passing}\n`;
       text += `Auto-fixable: ${d.auto_fixable}  |  Needs human: ${d.needs_human}\n\n`;
       if (d.operator_note) text += `OPERATOR NOTE\n${d.operator_note}\n\n`;
-      if (d.rescue_plan) {
-        text += "RESCUE PLAN\n" + "─".repeat(60) + "\n";
-        (d.rescue_plan || []).forEach(p => {
+      if (d.rescue_plan && d.rescue_plan.length) {
+        text += "RESCUE PLAN\n" + String.fromCharCode(8212).repeat ? "" : "";
+        text += "─".repeat(60) + "\n";
+        d.rescue_plan.forEach(p => {
           text += `#${p.priority}  ${p.title || p.title_id}\n`;
           text += `  Action:    ${p.action}\n`;
-          if (p.measured_lufs != null) text += `  LUFS:      ${parseFloat(p.measured_lufs).toFixed(1)} (target -23, delta ${parseFloat(p.lufs_delta||0).toFixed(1)} LU)\n`;
+          if (p.measured_lufs != null)
+            text += `  LUFS:      ${parseFloat(p.measured_lufs).toFixed(1)} (target -23, delta ${parseFloat(p.lufs_delta||0).toFixed(1)} LU)\n`;
           text += `  Failures:  ${p.failures}\n`;
           text += `  Rescue:    ${p.rescue_cost}\n`;
           text += `  Rationale: ${p.rationale}\n\n`;
         });
       }
-      if (d.model) text += `\nModel: ${d.model}`;
-      out.textContent = text;
+      if (d.model) text += `Model: ${d.model}`;
     } else {
-      out.textContent = JSON.stringify(d, null, 2);
+      text = JSON.stringify(d, null, 2);
     }
+    out.textContent = text;
   } catch(e) {
-    out.className = "triage-output visible";
     out.textContent = `Error: ${e}`;
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = "Re-triage selected title";
   }
 }
 
-// ---- MCP log ----
-async function loadMCPLog() {
-  const section = document.getElementById("mcp-section");
-  section.style.display = "block";
-  const container = document.getElementById("mcp-entries");
-  container.textContent = "Loading…";
+// ── MCP log footnote ───────────────────────────
+function handleMcpToggle(el) {
+  if (el.open && !mcpLoaded) loadMCPLog();
+}
 
+async function loadMCPLog() {
+  if (mcpLoaded) return;
+  mcpLoaded = true;
+  const container = document.getElementById("mcp-entries");
+  container.innerHTML = `<div style="color:var(--body);font-size:14px;margin-top:10px">Loading…</div>`;
   try {
-    const r = await fetch("/api/mcp-log");
-    const d = await r.json();
-    if (!d.entries.length) {
-      container.innerHTML = "<div style='color:var(--muted)'>No MCP calls logged yet. Run the rescue plan first.</div>";
+    const d = await fetch("/api/mcp-log").then(r => r.json());
+    if (!d.entries || !d.entries.length) {
+      container.innerHTML = `<div style="color:var(--body);font-size:14px;margin-top:10px">No MCP calls logged yet. Run a triage first.</div>`;
       return;
     }
-    container.innerHTML = d.entries.map(e =>
-      `<div class="mcp-entry">
-        <span class="mcp-ts">${e.ts}</span>
-        <span class="mcp-tool"> [${e.tool}]</span>
-        <span style="color:var(--muted)"> ${e.elapsed_s}s</span>
-        <div style="color:var(--text);margin-top:4px;word-break:break-all">${
-          (e.arguments?.query || JSON.stringify(e.arguments)).substring(0,200)
-        }</div>
-        <div style="color:var(--muted);margin-top:3px">${e.result_preview.substring(0,300)}</div>
-      </div>`
-    ).join("");
+    container.innerHTML = `<div style="color:var(--body);font-family:var(--mono);font-size:12px;margin-bottom:12px">${d.total_logged} total logged</div>` +
+      d.entries.map(e => `
+<div class="mcp-entry">
+  <span class="mcp-ts">${e.ts}</span>
+  <span class="mcp-tool"> [${e.tool}]</span>
+  <span style="color:var(--body);font-family:var(--mono);font-size:12px"> ${e.elapsed_s}s</span>
+  <div class="mcp-q">${(e.arguments?.query || JSON.stringify(e.arguments)).substring(0, 200)}</div>
+  <div class="mcp-res">${(e.result_preview || "").substring(0, 300)}</div>
+</div>`).join("");
   } catch(e) {
-    container.innerHTML = `<div style='color:var(--fail)'>Error: ${e}</div>`;
+    container.innerHTML = `<div style="color:var(--fail);font-size:14px;margin-top:10px">Error: ${e}</div>`;
   }
 }
 
-// ---- init ----
+// ── Init ───────────────────────────────────────
 loadStats();
 loadCatalog();
 </script>
