@@ -38,13 +38,31 @@ class MCPClickHouseClient:
 
     @staticmethod
     def _find_server_cmd() -> list[str]:
+        """Locate the official mcp-clickhouse server.
+
+        The interpreter's own venv is checked FIRST: running under `uv run` or
+        `.venv/bin/python` does not put `.venv/bin` on PATH, so shutil.which()
+        misses the server that is definitely installed, and every tool call then
+        fails with "Unknown tool".
+        """
         import shutil
-        for candidate in ["mcp-clickhouse", "uvx mcp-clickhouse"]:
-            parts = candidate.split()
-            if shutil.which(parts[0]):
-                return parts
-        # Fall back to uvx which will install-on-demand
-        return ["uvx", "mcp-clickhouse"]
+        import sys
+        from pathlib import Path
+
+        candidates = [
+            Path(sys.executable).parent / "mcp-clickhouse",
+            Path(__file__).resolve().parent.parent / ".venv" / "bin" / "mcp-clickhouse",
+        ]
+        for c in candidates:
+            if c.exists():
+                return [str(c)]
+
+        found = shutil.which("mcp-clickhouse")
+        if found:
+            return [found]
+
+        # uvx installs on demand.
+        return ["uvx", "--from", "mcp-clickhouse", "mcp-clickhouse"]
 
     async def __aenter__(self):
         await self._start()
