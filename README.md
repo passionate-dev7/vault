@@ -1,4 +1,4 @@
-# VAULT — Archive Delivery Triage
+# Redslip: archive delivery triage
 
 **Track: ClickHouse** | Agentic Cinema Hackathon 2026
 
@@ -8,9 +8,9 @@
 
 A distributor uploads a finished film to a streamer. Eleven days later it comes back rejected: integrated loudness is out of spec, subtitle cues break the reading-speed limit, a black segment flags as damage. Nobody watched the film wrong — the numbers were simply never measured before delivery. The re-deliver cycle costs weeks.
 
-VAULT prevents this at catalog scale. Point it at a film archive and it tells you, with machine-measured numbers, which titles would fail delivery today and what each costs to rescue.
+Redslip prevents this at catalog scale. Point it at a film archive and it tells you, with machine-measured numbers, which titles would fail delivery today and what each costs to rescue.
 
-**Named user:** a catalog or mastering QC lead at an indie distributor or film archive. They currently pay for Telestream Vantage or eyeball it. VAULT costs nothing to run on the 28,423 public-domain titles on archive.org.
+**Named user:** a catalog or mastering QC lead at an indie distributor or film archive. They currently pay for Telestream Vantage or eyeball it. Redslip costs nothing to run on the 28,423 public-domain titles on archive.org.
 
 ---
 

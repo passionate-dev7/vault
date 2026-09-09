@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VAULT: delivery rejection ledger</title>
+<title>Redslip: delivery rejection ledger</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 /* WIRED design system tokens - white canvas, black ink, one link blue, fail red.
-   Playfair for display, Source Serif for reading, Inter for utility, JetBrains Mono
+   Playfair for display, Source Serif for reading, system sans for utility, JetBrains Mono
    for every number. No cards, no pills, no dark mode. */
 :root {
   --ink:        #000000;
@@ -25,7 +25,7 @@
 
   --display: 'Playfair Display', 'Times New Roman', Georgia, serif;
   --read:    'Source Serif 4', Georgia, serif;
-  --sans:    'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --sans:    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -320,13 +320,28 @@ details > summary:hover { color: var(--ink); }
 .mcp-q    { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); margin-top: 4px; word-break: break-all; }
 .mcp-res  { font-family: var(--mono); font-size: 12px; color: var(--body); margin-top: 3px; }
 
+/* Red slip control */
+.slip-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.btn-slip {
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--canvas);
+  background: var(--fail);
+  border: none;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+.btn-slip:hover { background: var(--ink); }
+.slip-note { font: 400 13px/1.4 var(--mono); color: var(--body); }
+
 .empty-state { color: var(--body); font-family: var(--read); font-size: 17px; padding: 28px 0; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1 class="masthead">VAULT</h1>
+  <h1 class="masthead">Redslip</h1>
   <p class="standfirst">Which titles in this archive would be rejected by the delivery spec today, ranked by severity. Every row is a machine measurement, not an estimate.</p>
 </header>
 
@@ -377,7 +392,7 @@ details > summary:hover { color: var(--ink); }
         </tr>
       </thead>
       <tbody id="catalog-body">
-        <tr><td colspan="6" class="empty-state">Loading catalog…</td></tr>
+        <tr><td colspan="6" class="empty-state">Loading catalog...</td></tr>
       </tbody>
     </table>
   </div>
@@ -418,7 +433,7 @@ async function loadStats() {
 // ── Catalog ────────────────────────────────────
 async function loadCatalog() {
   const tbody = document.getElementById("catalog-body");
-  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Loading catalog…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Loading catalog...</td></tr>`;
   try {
     allRows = await fetch("/api/catalog").then(r => r.json());
     renderTable();
@@ -558,8 +573,14 @@ async function loadDetail(titleId) {
       ? `${d.sample_count.toLocaleString()} rows - short-term LUFS (red) vs target -23 LUFS (blue)`
       : "No loudness data";
 
+    detailCache[titleId] = d;
+
     inner.innerHTML = `
 <div class="expand-title">${titleId}</div>
+<div class="slip-bar">
+  <button class="btn-slip" onclick="copySlip(this, ${JSON.stringify(titleId).replace(/"/g, "&quot;")})">Copy red slip</button>
+  <span class="slip-note" id="slipnote-${safe}"></span>
+</div>
 <div class="expand-meta">${sampleNote}</div>
 <canvas class="lufs-chart" id="chart-${safe}"></canvas>
 <table class="findings-table">
@@ -574,6 +595,70 @@ async function loadDetail(titleId) {
   } catch(e) {
     if (inner) inner.innerHTML = `<div style="color:var(--fail);font-size:14px;padding:12px 0">Error: ${e}</div>`;
   }
+}
+
+// ── Red slip ───────────────────────────────────
+const detailCache = {};
+
+function buildSlip(titleId) {
+  const d = detailCache[titleId];
+  if (!d) return "";
+  const findings = d.findings || [];
+  const failed = findings.filter(f => !f.passed);
+  const row = allRows.find(r => r.title_id === titleId) || {};
+  const L = [];
+  L.push("RED SLIP: delivery rejected");
+  L.push("");
+  L.push(`Title:   ${row.title || titleId}`);
+  L.push(`ID:      ${titleId}`);
+  L.push(`Verdict: ${failed.length ? "FAIL" : "PASS"}`);
+  L.push(`Checks:  ${failed.length} failed of ${findings.length}`);
+  L.push("");
+  if (failed.length) {
+    L.push("FAILED CHECKS");
+    L.push("-".repeat(60));
+    failed.forEach(f => {
+      const u = f.unit ? ` ${f.unit}` : "";
+      const m = f.measured != null ? `${parseFloat(f.measured).toFixed(2)}${u}` : "not measured";
+      const t = f.target != null ? `${parseFloat(f.target).toFixed(2)}${u}` : "n/a";
+      L.push(`${f.check_name}`);
+      L.push(`  measured: ${m}`);
+      L.push(`  spec:     ${t}${f.spec ? ` (${f.spec})` : ""}`);
+      L.push(`  rescue:   ${f.rescue_cost || "unspecified"}${f.auto_fixable ? " (auto-repairable)" : " (needs human)"}`);
+      if (f.detail) L.push(`  note:     ${f.detail}`);
+      L.push("");
+    });
+  } else {
+    L.push("No failed checks on this title.");
+    L.push("");
+  }
+  L.push("COST TO RESCUE");
+  L.push("-".repeat(60));
+  L.push(rescueText(row) === "-" ? "No rescue work outstanding." : rescueText(row));
+  L.push("");
+  L.push("Measured by Redslip against the delivery spec.");
+  return L.join("\n");
+}
+
+async function copySlip(btn, titleId) {
+  const text = buildSlip(titleId);
+  const safe = titleId.replace(/[^a-z0-9]/gi, "_");
+  const note = document.getElementById(`slipnote-${safe}`);
+  try {
+    await navigator.clipboard.writeText(text);
+    if (note) note.textContent = `Copied ${text.split("\n").length} lines to clipboard`;
+  } catch(e) {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(ta);
+    if (note) note.textContent = ok ? "Copied to clipboard" : "Copy blocked by browser";
+  }
+  setTimeout(() => { if (note) note.textContent = ""; }, 4000);
 }
 
 // ── Loudness chart (light canvas) ─────────────
@@ -632,9 +717,9 @@ async function runTriage() {
   const btn = document.getElementById("btn-triage");
   const out = document.getElementById("triage-output");
   btn.disabled    = true;
-  btn.textContent = "Running…";
+  btn.textContent = "Running...";
   out.className   = "triage-out visible";
-  out.textContent = "Querying ClickHouse via mcp-clickhouse and sending to Gemini…";
+  out.textContent = "Querying ClickHouse via mcp-clickhouse and sending to Gemini...";
 
   try {
     const d = await fetch("/api/triage", { method: "POST" }).then(r => r.json());
@@ -645,8 +730,7 @@ async function runTriage() {
       text += `Auto-fixable: ${d.auto_fixable}  |  Needs human: ${d.needs_human}\n\n`;
       if (d.operator_note) text += `OPERATOR NOTE\n${d.operator_note}\n\n`;
       if (d.rescue_plan && d.rescue_plan.length) {
-        text += "RESCUE PLAN\n" + String.fromCharCode(8212).repeat ? "" : "";
-        text += "─".repeat(60) + "\n";
+        text += "RESCUE PLAN\n" + "-".repeat(60) + "\n";
         d.rescue_plan.forEach(p => {
           text += `#${p.priority}  ${p.title || p.title_id}\n`;
           text += `  Action:    ${p.action}\n`;
@@ -679,7 +763,7 @@ async function loadMCPLog() {
   if (mcpLoaded) return;
   mcpLoaded = true;
   const container = document.getElementById("mcp-entries");
-  container.innerHTML = `<div style="color:var(--body);font-size:14px;margin-top:10px">Loading…</div>`;
+  container.innerHTML = `<div style="color:var(--body);font-size:14px;margin-top:10px">Loading...</div>`;
   try {
     const d = await fetch("/api/mcp-log").then(r => r.json());
     if (!d.entries || !d.entries.length) {

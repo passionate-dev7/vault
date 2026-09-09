@@ -1,4 +1,4 @@
-"""VAULT web UI — FastAPI dark single-page app.
+"""Redslip web UI: FastAPI single-page rejection ledger.
 
 Endpoints:
   GET  /           — catalog table (sortable, per-title drill-down)
@@ -27,7 +27,7 @@ from qc import store
 
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="VAULT", docs_url=None, redoc_url=None)
+app = FastAPI(title="Redslip", docs_url=None, redoc_url=None)
 
 
 def _ch():
