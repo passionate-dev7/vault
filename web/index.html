@@ -3,352 +3,250 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Redslip: delivery rejection ledger</title>
+<title>Redslip: delivery rejection slip</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* WIRED design system tokens - white canvas, black ink, one link blue, fail red.
-   Playfair for display, Source Serif for reading, system sans for utility, JetBrains Mono
-   for every number. No cards, no pills, no dark mode. */
+/* Wired tokens, one substitution: Newsreader replaces Playfair as the tall
+   narrow news serif. Source Serif 4 reads. System sans is the Apercu stand-in.
+   JetBrains Mono is for LUFS numbers only. White stock, black ink, one link
+   blue, fail red. Radius 0. Hairline rules, no cards, no shadows, no dark mode. */
 :root {
-  --ink:        #000000;
-  --ink-soft:   #1a1a1a;
-  --body:       #757575;
-  --hairline:   #e0e0e0;
-  --canvas:     #ffffff;
-  --canvas-soft:#f5f5f5;
-  --link:       #057dbc;
-  --fail:       #c81e1e;
-  --pass:       #1a7f37;
-  --warn:       #a16207;
+  --ink:      #000000;
+  --ink-soft: #1a1a1a;
+  --body:     #757575;
+  --hairline: #dcdcdc;
+  --hairline-soft: #ececec;
+  --canvas:   #ffffff;
+  --link:     #057dbc;
+  --fail:     #c81e1e;
 
-  --display: 'Playfair Display', 'Times New Roman', Georgia, serif;
-  --read:    'Source Serif 4', Georgia, serif;
+  --display: 'Newsreader', 'Times New Roman', Georgia, serif;
+  --read:    'Source Serif 4', Georgia, 'Times New Roman', serif;
   --sans:    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
   --mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body { height: 100%; }
 body {
   background: var(--canvas);
   color: var(--ink-soft);
-  font: 400 16px/1.5 var(--sans);
+  font: 400 17px/1.55 var(--read);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* ── Masthead ─────────────────────────────────── */
+/* Masthead: the wordmark, one line, 2px rule under it. */
 header {
   border-bottom: 2px solid var(--ink);
-  padding: 28px 40px 20px;
+  padding: 30px 44px 18px;
 }
 .masthead {
   font-family: var(--display);
   font-size: 64px;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: -1px;
+  font-weight: 500;
+  line-height: 0.9;
+  letter-spacing: -1.8px;
   color: var(--ink);
 }
 .standfirst {
   font-family: var(--read);
   font-size: 19px;
-  line-height: 1.5;
+  line-height: 1.45;
   color: var(--body);
   max-width: 62ch;
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
-/* ── Layout ───────────────────────────────────── */
-main { max-width: 1240px; margin: 0 auto; padding: 0 40px 80px; }
+/* Two columns: the ledger and the slip. A hairline runs between them. */
+.sheet {
+  display: grid;
+  grid-template-columns: 38% 62%;
+  min-height: calc(100dvh - 128px);
+}
+.ledger  { border-right: 1px solid var(--hairline); padding: 26px 30px 60px 44px; }
+.slip    { padding: 34px 44px 60px 40px; }
 
-/* ── Three numbers, baselined, no boxes ─────── */
-.numbers-band {
+/* Left: a newspaper column of titles, worst first. */
+.dateline {
+  font: 500 11px/1.4 var(--sans);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--body);
+  padding-bottom: 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--ink);
+}
+.dateline b { color: var(--ink); font-weight: 700; }
+
+.titles { list-style: none; }
+.title-line {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 13px 0 12px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  padding-left: 0;
+  transition: border-color .12s, background .12s;
+}
+.title-line:hover { background: #fafafa; }
+.title-line.selected {
+  border-left: 2px solid var(--ink);
+  padding-left: 12px;
+}
+.title-name {
+  font-family: var(--read);
+  font-size: 19px;
+  line-height: 1.25;
+  color: var(--body);
+}
+.title-line.reject .title-name { color: var(--fail); }
+.title-line.selected .title-name { color: var(--ink); }
+.title-meta {
+  margin-top: 5px;
+  font: 400 12.5px/1.4 var(--mono);
+  color: var(--body);
   display: flex;
-  align-items: baseline;
-  gap: 48px;
-  padding: 32px 0 24px;
-  border-bottom: 1px solid var(--hairline);
+  gap: 14px;
 }
-.number-item { display: flex; flex-direction: column; }
-.number-value {
+.title-meta .m-lufs.reject { color: var(--fail); }
+.title-meta .m-fails { color: var(--body); }
+
+/* Right: the slip, typeset as a letter. */
+.slip-eyebrow {
+  font: 700 12px/1 var(--sans);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.slip-verdict {
+  font-family: var(--read);
+  font-style: italic;
+  font-size: 20px;
+  color: var(--fail);
+  margin-top: 6px;
+}
+.slip-verdict.clear { color: var(--ink-soft); }
+.slip-title {
   font-family: var(--display);
   font-size: 52px;
   font-weight: 400;
-  line-height: 1;
+  line-height: 1.02;
+  letter-spacing: -1px;
   color: var(--ink);
+  margin: 16px 0 4px;
+  max-width: 20ch;
 }
-.number-value.is-fail { color: var(--fail); }
-.number-value.is-pass { color: var(--pass); }
-.number-label {
-  font: 700 11px/1.4 var(--sans);
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+.slip-id {
+  font: 400 12.5px/1.4 var(--mono);
   color: var(--body);
-  margin-top: 6px;
-}
-.numbers-sep {
-  width: 1px;
-  height: 44px;
-  background: var(--hairline);
-  align-self: center;
+  margin-bottom: 22px;
 }
 
-/* ── Controls row ────────────────────────────── */
-.controls {
+.rule { border: 0; border-top: 1px solid var(--ink); margin: 22px 0; }
+.rule-soft { border: 0; border-top: 1px solid var(--hairline); margin: 18px 0; }
+
+.integrated {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 18px 0;
+  align-items: baseline;
+  gap: 20px;
   flex-wrap: wrap;
+  font-family: var(--read);
+  font-size: 19px;
 }
-.controls input[type="text"] {
-  border: none;
-  border-bottom: 1px solid var(--ink);
-  padding: 6px 4px;
-  font: 400 14px/1 var(--sans);
-  color: var(--ink);
-  background: transparent;
-  width: 200px;
-}
-.controls input[type="text"]:focus {
-  outline: none;
-  border-bottom: 2px solid var(--link);
-}
-.controls input[type="text"]::placeholder { color: var(--body); }
-.btn-sort {
-  background: none;
-  border: none;
-  border-bottom: 1px solid transparent;
+.integrated .lbl {
   font: 700 11px/1.4 var(--sans);
-  letter-spacing: 1.1px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--body);
-  cursor: pointer;
-  padding: 3px 0;
 }
-.btn-sort:hover { color: var(--ink); border-bottom-color: var(--ink); }
-.btn-sort.active { color: var(--ink); border-bottom-color: var(--ink); }
-.ctrl-sep { color: var(--hairline); font-size: 14px; }
+.integrated .val { font-family: var(--mono); font-size: 26px; color: var(--ink); }
+.integrated .val.reject { color: var(--fail); }
+.integrated .spec { font-family: var(--mono); font-size: 14px; color: var(--body); }
 
-/* Verdict chips */
-.chips { display: flex; align-items: center; gap: 10px; padding: 4px 0 0; flex-wrap: wrap; }
-.chip {
-  background: none;
-  border: 1px solid var(--hairline);
-  font: 700 11px/1.4 var(--sans);
-  letter-spacing: 1.1px;
-  text-transform: uppercase;
-  color: var(--body);
-  cursor: pointer;
-  padding: 5px 12px;
-}
-.chip:hover { color: var(--ink); border-color: var(--ink); }
-.chip.active { color: var(--canvas); background: var(--ink); border-color: var(--ink); }
-.chip .chip-n { font-family: var(--mono); letter-spacing: 0; margin-left: 6px; }
-.btn-triage {
-  background: none;
-  border: none;
-  font: 400 14px/1.4 var(--sans);
-  color: var(--link);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  padding: 0;
-  margin-left: auto;
-}
-.btn-triage:hover { color: var(--ink); }
-.btn-triage:disabled { color: var(--body); cursor: default; text-decoration: none; }
-
-/* ── Catalog table ───────────────────────────── */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; }
-
-thead th {
-  font: 700 11px/1.4 var(--sans);
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--body);
-  padding: 8px 10px;
-  border-bottom: 2px solid var(--ink);
-  text-align: left;
-  white-space: nowrap;
-  cursor: pointer;
-  user-select: none;
-}
-thead th:hover { color: var(--ink); }
-thead th.th-r { text-align: right; }
-
-tbody tr.data-row {
-  cursor: pointer;
+.checks { margin-top: 6px; }
+.check {
+  padding: 15px 0 14px;
   border-bottom: 1px solid var(--hairline);
 }
-tbody tr.data-row:hover td,
-tbody tr.data-row.expanded td { background: var(--canvas-soft); }
-
-td {
-  padding: 13px 10px;
-  vertical-align: top;
-  color: var(--ink-soft);
-}
-td.td-rank {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--body);
-  text-align: right;
-  width: 36px;
-}
-td.td-title {
+.check:first-child { border-top: 1px solid var(--hairline); }
+.check-name {
   font-family: var(--read);
-  font-size: 18px;
-  line-height: 1.3;
+  font-size: 19px;
   color: var(--ink);
-  max-width: 400px;
+  margin-bottom: 4px;
 }
-td.td-lufs, td.td-num {
-  font-family: var(--mono);
-  font-size: 15px;
-  text-align: right;
-  white-space: nowrap;
+.check.reject .check-name { color: var(--fail); }
+.check-body {
+  font-family: var(--read);
+  font-size: 16px;
+  color: var(--ink-soft);
+  line-height: 1.5;
 }
-td.td-rescue { font-size: 13px; color: var(--body); }
-td.td-verdict {
-  font: 700 12px/1.4 var(--sans);
-  letter-spacing: 1px;
+.check-body .num { font-family: var(--mono); font-size: 14px; }
+.check-body .num.reject { color: var(--fail); }
+.check-detail { color: var(--body); font-size: 15px; margin-top: 2px; }
+.check-rescue { color: var(--body); font-size: 14px; margin-top: 3px; }
+
+.field { margin-top: 22px; }
+.field .lbl {
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.4px;
   text-transform: uppercase;
-}
-
-.lufs-fail { color: var(--fail); }
-.lufs-warn { color: var(--warn); }
-.lufs-ok   { color: var(--pass); }
-.lufs-none { color: var(--body); }
-.verdict-fail { color: var(--fail); }
-.verdict-pass { color: var(--pass); }
-
-/* ── Accordion expand row ────────────────────── */
-tr.expand-row { display: none; }
-tr.expand-row.open { display: table-row; }
-tr.expand-row td {
-  padding: 0;
-  background: var(--canvas-soft);
-  border-bottom: 2px solid var(--ink);
-}
-.expand-inner { padding: 24px 40px 28px; }
-.expand-title {
-  font-family: var(--display);
-  font-size: 22px;
-  font-weight: 400;
-  color: var(--ink);
-  margin-bottom: 14px;
-}
-.expand-meta {
-  font: 400 13px/1.4 var(--mono);
   color: var(--body);
-  margin-bottom: 10px;
+  display: block;
+  margin-bottom: 6px;
 }
+.listen .time { font-family: var(--mono); font-size: 22px; color: var(--ink); }
+.listen .sub { font-family: var(--mono); font-size: 13px; color: var(--body); margin-top: 4px; }
+.plan-text {
+  font-family: var(--read);
+  font-size: 17px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+.plan-none { font-family: var(--read); font-style: italic; font-size: 17px; color: var(--body); }
 
+/* Loudness plot: a hairline under the letter, subordinate to it. */
 canvas.lufs-chart {
   display: block;
   width: 100%;
-  height: 72px;
+  height: 56px;
   background: var(--canvas);
-  border: 1px solid var(--hairline);
-  margin-bottom: 18px;
-}
-
-/* Findings sub-table */
-.findings-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 0;
-}
-.findings-table th {
-  font: 700 11px/1.4 var(--sans);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: var(--body);
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--ink);
-  text-align: left;
-}
-.findings-table td {
-  padding: 9px 8px;
-  border-bottom: 1px solid var(--hairline);
-  font-size: 14px;
-  color: var(--ink-soft);
-  background: transparent;
-}
-.findings-table tr:last-child td { border-bottom: 0; }
-.f-check { font-family: var(--mono); font-size: 13px; color: var(--ink); }
-.f-meas  { font-family: var(--mono); font-size: 13px; }
-.f-pass  { color: var(--pass); font: 700 11px/1.4 var(--sans); letter-spacing: 1px; text-transform: uppercase; }
-.f-fail  { color: var(--fail); font: 700 11px/1.4 var(--sans); letter-spacing: 1px; text-transform: uppercase; }
-.f-rescue { font-size: 12px; color: var(--body); }
-.f-detail { font-size: 12px; color: var(--body); max-width: 280px; }
-
-/* ── Triage output ───────────────────────────── */
-.triage-out {
-  display: none;
-  font-family: var(--mono);
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--ink-soft);
-  background: var(--canvas-soft);
-  border: 1px solid var(--hairline);
-  padding: 16px 20px;
-  white-space: pre-wrap;
-  overflow-x: auto;
-  margin: 16px 0 0;
-}
-.triage-out.visible { display: block; }
-
-/* ── MCP footnote ────────────────────────────── */
-.mcp-footnote {
   border-top: 1px solid var(--hairline);
-  margin-top: 56px;
-  padding-top: 14px;
+  border-bottom: 1px solid var(--hairline);
+  margin-top: 26px;
 }
-details > summary {
-  font: 700 11px/1.4 var(--sans);
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--body);
-  cursor: pointer;
-  list-style: none;
-}
-details > summary::-webkit-details-marker { display: none; }
-details > summary::before {
-  content: "+ ";
-  font-family: var(--mono);
-}
-details[open] > summary::before { content: "- "; }
-details > summary:hover { color: var(--ink); }
+.chart-cap { font: 400 11.5px/1.4 var(--mono); color: var(--body); margin-top: 6px; }
 
-.mcp-entries { margin-top: 14px; }
-.mcp-entry {
-  border-left: 2px solid var(--hairline);
-  padding-left: 14px;
-  margin-bottom: 14px;
+/* Copy control: a text link, not a button chrome. */
+.slip-actions {
+  margin-top: 26px;
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  flex-wrap: wrap;
 }
-.mcp-tool { font-family: var(--mono); font-size: 13px; color: var(--ink); font-weight: 500; }
-.mcp-ts   { font-family: var(--mono); font-size: 12px; color: var(--body); }
-.mcp-q    { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); margin-top: 4px; word-break: break-all; }
-.mcp-res  { font-family: var(--mono); font-size: 12px; color: var(--body); margin-top: 3px; }
-
-/* Red slip control */
-.slip-bar { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
-.btn-slip {
-  font: 700 11px/1.4 var(--sans);
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
-  color: var(--canvas);
-  background: var(--fail);
+.btn-copy, .btn-link {
+  background: none;
   border: none;
-  padding: 9px 16px;
+  padding: 0;
+  font: 400 15px/1.4 var(--sans);
+  color: var(--link);
   cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
-.btn-slip:hover { background: var(--ink); }
+.btn-copy:hover, .btn-link:hover { color: var(--ink); }
+.btn-link:disabled { color: var(--body); cursor: default; text-decoration: none; }
 .slip-note { font: 400 13px/1.4 var(--mono); color: var(--body); }
 .slip-fallback {
   display: none;
@@ -357,302 +255,319 @@ details > summary:hover { color: var(--ink); }
   background: var(--canvas);
   border: 1px solid var(--hairline);
   padding: 14px 16px;
-  margin-bottom: 16px;
+  margin-top: 16px;
   white-space: pre-wrap;
   user-select: text;
 }
 
-.empty-state { color: var(--body); font-family: var(--read); font-size: 17px; padding: 28px 0; }
+.triage-out {
+  display: none;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--hairline);
+  padding-top: 14px;
+  margin-top: 18px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+.triage-out.visible { display: block; }
+
+.empty { color: var(--body); font-family: var(--read); font-style: italic; font-size: 18px; padding: 40px 0; }
+
+/* Colophon: the MCP log, folded down at the foot of the page. */
+.colophon {
+  border-top: 1px solid var(--ink);
+  margin: 0 44px;
+  padding: 16px 0 40px;
+}
+details > summary {
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--body);
+  cursor: pointer;
+  list-style: none;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "+ "; font-family: var(--mono); }
+details[open] > summary::before { content: "- "; }
+details > summary:hover { color: var(--ink); }
+.mcp-entries { margin-top: 14px; }
+.mcp-entry { border-left: 2px solid var(--hairline); padding-left: 14px; margin-bottom: 14px; }
+.mcp-tool { font-family: var(--mono); font-size: 13px; color: var(--ink); font-weight: 500; }
+.mcp-ts   { font-family: var(--mono); font-size: 12px; color: var(--body); }
+.mcp-q    { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); margin-top: 4px; word-break: break-all; }
+.mcp-res  { font-family: var(--mono); font-size: 12px; color: var(--body); margin-top: 3px; }
+
+@media (max-width: 900px) {
+  header { padding: 24px 24px 16px; }
+  .masthead { font-size: 52px; letter-spacing: -1.4px; }
+  .sheet { grid-template-columns: 1fr; }
+  .ledger { border-right: none; border-bottom: 1px solid var(--ink); padding: 20px 24px 30px; }
+  .slip { padding: 26px 24px 50px; }
+  .slip-title { font-size: 40px; }
+  .colophon { margin: 0 24px; }
+}
 </style>
 </head>
 <body>
 
 <header>
   <h1 class="masthead">Redslip</h1>
-  <p class="standfirst">Which titles in this archive would be rejected by the delivery spec today, ranked by severity. Every row is a machine measurement, not an estimate.</p>
+  <p class="standfirst">A delivery-rejection slip for the archive: pick a title on the left, read the slip on the right. Every number is measured against the delivery spec, not estimated.</p>
 </header>
 
-<main>
+<div class="sheet">
+  <!-- The ledger: titles, worst loudness first. -->
+  <nav class="ledger">
+    <div class="dateline" id="dateline">Delivery QC</div>
+    <div id="titles"><p class="empty">Loading catalog...</p></div>
+  </nav>
 
-  <!-- Three numbers baselined, no cards -->
-  <div class="numbers-band">
-    <div class="number-item">
-      <span class="number-value" id="n-titles">-</span>
-      <span class="number-label">Titles scanned</span>
+  <!-- The slip for the selected title. -->
+  <section class="slip" id="slip">
+    <p class="empty">Loading slip...</p>
+  </section>
+</div>
+
+<div class="colophon">
+  <details id="mcp-details" ontoggle="handleMcpToggle(this)">
+    <summary>Queries the agent ran (MCP log)</summary>
+    <div class="mcp-entries" id="mcp-entries">
+      <div style="color:var(--body);font-size:14px;margin-top:10px">Open to load.</div>
     </div>
-    <div class="numbers-sep"></div>
-    <div class="number-item">
-      <span class="number-value is-fail" id="n-fail">-</span>
-      <span class="number-label">Failing delivery</span>
-    </div>
-    <div class="numbers-sep"></div>
-    <div class="number-item">
-      <span class="number-value" id="n-auto">-</span>
-      <span class="number-label">Pass after auto-repair</span>
-    </div>
-  </div>
-
-  <!-- Controls -->
-  <div class="controls">
-    <input type="text" id="search" placeholder="Filter titles" oninput="applyFilter()">
-    <button class="btn-sort active" id="s-failures" onclick="sortBy('failures', true, this)">Failures</button>
-    <span class="ctrl-sep">|</span>
-    <button class="btn-sort" id="s-lufs" onclick="sortBy('integrated_lufs', true, this)">LUFS</button>
-    <span class="ctrl-sep">|</span>
-    <button class="btn-sort" id="s-verdict" onclick="sortBy('verdict', false, this)">Verdict</button>
-    <span class="ctrl-sep">|</span>
-    <button class="btn-sort" id="s-title" onclick="sortBy('title', false, this)">A–Z</button>
-    <button class="btn-triage" id="btn-triage" onclick="runTriage()">Re-triage selected title</button>
-  </div>
-
-  <!-- Verdict chips: rejects first -->
-  <div class="chips" id="verdict-chips">
-    <button class="chip active" id="chip-FAIL" onclick="setVerdictFilter('FAIL')">Fail<span class="chip-n" id="chip-n-FAIL">-</span></button>
-    <button class="chip" id="chip-PASS" onclick="setVerdictFilter('PASS')">Pass<span class="chip-n" id="chip-n-PASS">-</span></button>
-    <button class="chip" id="chip-ALL" onclick="setVerdictFilter('ALL')">All<span class="chip-n" id="chip-n-ALL">-</span></button>
-  </div>
-
-  <!-- Catalog table - the product -->
-  <div class="table-wrap">
-    <table id="catalog-table">
-      <thead>
-        <tr>
-          <th class="th-r" style="cursor:default">#</th>
-          <th onclick="sortBy('title', false, document.getElementById('s-title'))">Title</th>
-          <th class="th-r" onclick="sortBy('integrated_lufs', true, document.getElementById('s-lufs'))">Integrated LUFS vs -23</th>
-          <th class="th-r" onclick="sortBy('failures', true, document.getElementById('s-failures'))">Failures</th>
-          <th onclick="sortBy('needs_human', true, null)">Rescue</th>
-          <th onclick="sortBy('verdict', false, document.getElementById('s-verdict'))">Verdict</th>
-        </tr>
-      </thead>
-      <tbody id="catalog-body">
-        <tr><td colspan="6" class="empty-state">Loading catalog...</td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Triage output (inline, hidden until triggered) -->
-  <div class="triage-out" id="triage-output"></div>
-
-  <!-- MCP log - footnote, collapsed -->
-  <div class="mcp-footnote">
-    <details id="mcp-details" ontoggle="handleMcpToggle(this)">
-      <summary>Queries the agent ran (MCP log)</summary>
-      <div class="mcp-entries" id="mcp-entries">
-        <div style="color:var(--body);font-size:14px;margin-top:10px">Open to load.</div>
-      </div>
-    </details>
-  </div>
-
-</main>
+  </details>
+</div>
 
 <script>
-let allRows   = [];
-let sortKey   = "failures";
-let sortDesc  = true;
-let filterStr = "";
-let verdictFilter = "FAIL";   // rejects first
-let expandedId = null;
+let allRows    = [];
+let selectedId = null;
 let mcpLoaded  = false;
 
-// ── Stats ──────────────────────────────────────
-async function loadStats() {
-  try {
-    const d = await fetch("/api/stats").then(r => r.json());
-    document.getElementById("n-titles").textContent = (d.title_count ?? "-").toLocaleString();
-    document.getElementById("n-fail").textContent   = (d.failing    ?? "-").toLocaleString();
-    document.getElementById("n-auto").textContent   = (d.auto_fixable ?? "-").toLocaleString();
-  } catch(e) { console.error("stats", e); }
+// ── Ordering ────────────────────────────────���──
+// Distance of a title's integrated loudness from the -23 LUFS target. Null when
+// the title has no measured loudness, so it sorts to the foot of the column
+// rather than masquerading as on-spec.
+function lufsDelta(row) {
+  if (row == null || row.integrated_lufs == null) return null;
+  const v = parseFloat(row.integrated_lufs);
+  if (!Number.isFinite(v)) return null;
+  return Math.abs(v - (-23));
+}
+
+// The exact order the ledger paints: worst loudness delta first, measured titles
+// above unmeasured, ties broken by failure count then title. Pure, so a test can
+// run it on the real /api/catalog payload.
+function orderedTitles(rows) {
+  return rows.slice().sort((a, b) => {
+    const da = lufsDelta(a), db = lufsDelta(b);
+    if (da == null && db == null) {
+      const fa = a.failures || 0, fb = b.failures || 0;
+      if (fb !== fa) return fb - fa;
+      return (a.title || a.title_id).localeCompare(b.title || b.title_id);
+    }
+    if (da == null) return 1;
+    if (db == null) return -1;
+    if (db !== da) return db - da;
+    const fa = a.failures || 0, fb = b.failures || 0;
+    if (fb !== fa) return fb - fa;
+    return (a.title || a.title_id).localeCompare(b.title || b.title_id);
+  });
+}
+
+// The title a judge should already be reading on load: the worst reject at the
+// head of the column. Null when nothing is rejected, and then the top title is
+// shown instead. Pure, so a test can run it on the real payload.
+function openingFailId(rows) {
+  const worst = orderedTitles(rows).find(r => r.verdict !== "PASS");
+  return worst ? worst.title_id : null;
 }
 
 // ── Catalog ────────────────────────────────────
 async function loadCatalog() {
-  const tbody = document.getElementById("catalog-body");
-  tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Loading catalog...</td></tr>`;
+  const host = document.getElementById("titles");
+  host.innerHTML = `<p class="empty">Loading catalog...</p>`;
   try {
     allRows = await fetch("/api/catalog").then(r => r.json());
-    renderChipCounts();
-    renderTable();
-  } catch(e) {
-    tbody.innerHTML = `<tr><td colspan="6" style="color:var(--fail);padding:24px 0;font-size:15px">Error loading catalog: ${e}</td></tr>`;
-  }
-}
-
-// Rows a chip shows. Pure, so a test can run it on the real payload.
-function verdictRows(rows, verdict) {
-  if (verdict === "ALL") return rows.slice();
-  return rows.filter(r => (r.verdict === "PASS" ? "PASS" : "FAIL") === verdict);
-}
-
-function renderChipCounts() {
-  for (const v of ["FAIL", "PASS", "ALL"]) {
-    document.getElementById("chip-n-" + v).textContent = verdictRows(allRows, v).length;
-  }
-}
-
-function setVerdictFilter(v) {
-  verdictFilter = v;
-  expandedId = null;
-  for (const k of ["FAIL", "PASS", "ALL"]) {
-    document.getElementById("chip-" + k).classList.toggle("active", k === v);
-  }
-  renderTable();
-}
-
-function applyFilter() {
-  filterStr  = document.getElementById("search").value.toLowerCase();
-  expandedId = null;
-  renderTable();
-}
-
-function sortBy(key, desc, btn) {
-  sortKey    = key;
-  sortDesc   = desc;
-  expandedId = null;
-  document.querySelectorAll(".btn-sort").forEach(b => b.classList.remove("active"));
-  if (btn) btn.classList.add("active");
-  renderTable();
-}
-
-function lufsSpan(lufs) {
-  if (lufs == null) return `<span class="lufs-none">-</span>`;
-  const v     = parseFloat(lufs);
-  const delta = Math.abs(v - (-23));
-  const cls   = delta > 3 ? "lufs-fail" : delta > 1 ? "lufs-warn" : "lufs-ok";
-  const sign  = v - (-23) > 0 ? "+" : "";
-  return `<span class="${cls}">${v.toFixed(1)}</span><span style="color:var(--body);font-size:12px"> (${sign}${(v-(-23)).toFixed(1)})</span>`;
-}
-
-function rescueText(row) {
-  if (!row.failures) return "-";
-  const a = row.auto_fixable || 0;
-  const h = row.needs_human  || 0;
-  if (h > 0 && a > 0) return `${a} auto, ${h} human`;
-  if (h > 0) return `${h} human`;
-  if (a > 0) return `${a} auto`;
-  return "-";
-}
-
-function renderTable() {
-  const filtered = verdictRows(allRows, verdictFilter)
-    .filter(r => !filterStr || (r.title || r.title_id).toLowerCase().includes(filterStr))
-    .sort((a, b) => {
-      let av = a[sortKey], bv = b[sortKey];
-      if (av == null) av = sortDesc ? -Infinity : Infinity;
-      if (bv == null) bv = sortDesc ? -Infinity : Infinity;
-      if (typeof av === "string") return sortDesc ? bv.localeCompare(av) : av.localeCompare(bv);
-      return sortDesc ? bv - av : av - bv;
-    });
-
-  const tbody = document.getElementById("catalog-body");
-  if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No ${verdictFilter === "ALL" ? "" : verdictFilter + " "}titles match "${filterStr || "current filter"}".</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = filtered.map((r, i) => {
-    const rank   = i + 1;
-    const tid    = r.title_id;
-    const isExp  = expandedId === tid;
-    const verdict = r.verdict === "PASS"
-      ? `<span class="verdict-pass">PASS</span>`
-      : `<span class="verdict-fail">FAIL</span>`;
-    const safe = String(tid).replace(/[^a-z0-9]/gi, "_");
-
-    return `
-<tr class="data-row${isExp ? " expanded" : ""}" data-tid="${String(tid).replace(/"/g, "&quot;")}">
-  <td class="td-rank">${rank}</td>
-  <td class="td-title">${r.title || r.title_id}</td>
-  <td class="td-lufs">${lufsSpan(r.integrated_lufs)}</td>
-  <td class="td-num">${r.failures ?? "-"}</td>
-  <td class="td-rescue">${rescueText(r)}</td>
-  <td class="td-verdict">${verdict}</td>
-</tr>
-<tr class="expand-row${isExp ? " open" : ""}" id="exp-${safe}">
-  <td colspan="6">
-    <div class="expand-inner" id="inner-${safe}">
-      <div style="color:var(--body);font-family:var(--mono);font-size:13px">Loading...</div>
-    </div>
-  </td>
-</tr>`;
-  }).join("");
-  tbody.onclick = (e) => {
-    const tr = e.target.closest("tr.data-row");
-    if (!tr) return;
-    toggleExpand(tr.dataset.tid);
-  };
-
-  if (expandedId) {
-    const safe = expandedId.replace(/[^a-z0-9]/gi, "_");
-    const inner = document.getElementById(`inner-${safe}`);
-    if (inner && inner.textContent.trim() === "Loading...") {
-      loadDetail(expandedId);
+    if (!allRows.length) {
+      host.innerHTML = `<p class="empty">No titles measured yet. Ingest first.</p>`;
+      document.getElementById("slip").innerHTML = `<p class="empty">No slip to show.</p>`;
+      return;
     }
+    renderDateline();
+    renderTitles();
+    openWorstFailure();
+  } catch(e) {
+    host.innerHTML = `<p class="empty" style="color:var(--fail);font-style:normal">Error loading catalog: ${e}</p>`;
   }
 }
 
-async function toggleExpand(titleId, label) {
-  if (expandedId === titleId) {
-    expandedId = null;
-    renderTable();
-    return;
-  }
-  expandedId = titleId;
-  renderTable();
+function renderDateline() {
+  const n = allRows.length;
+  const rej = allRows.filter(r => r.verdict !== "PASS").length;
+  document.getElementById("dateline").innerHTML =
+    `Delivery QC &nbsp;/&nbsp; <b>${n}</b> titles measured, <b>${rej}</b> rejected`;
+}
+
+function lufsCell(row) {
+  const d = lufsDelta(row);
+  if (d == null) return `<span class="m-lufs">no loudness</span>`;
+  const v = parseFloat(row.integrated_lufs);
+  const sign = (v - (-23)) > 0 ? "+" : "";
+  const cls = d > 1 ? " reject" : "";
+  return `<span class="m-lufs${cls}">${v.toFixed(1)} LUFS (${sign}${(v-(-23)).toFixed(1)})</span>`;
+}
+
+function renderTitles() {
+  const ordered = orderedTitles(allRows);
+  const host = document.getElementById("titles");
+  host.innerHTML = ordered.map(r => {
+    const tid = r.title_id;
+    const isReject = r.verdict !== "PASS";
+    const sel = tid === selectedId ? " selected" : "";
+    const fails = isReject
+      ? `<span class="m-fails">${r.failures || 0} failed</span>`
+      : `<span class="m-fails">clear</span>`;
+    return `
+<button class="title-line${isReject ? " reject" : ""}${sel}" data-tid="${String(tid).replace(/"/g, "&quot;")}">
+  <span class="title-name">${r.title || tid}</span>
+  <span class="title-meta">${lufsCell(r)} ${fails}</span>
+</button>`;
+  }).join("");
+  host.onclick = (e) => {
+    const b = e.target.closest(".title-line");
+    if (b) selectTitle(b.dataset.tid);
+  };
+}
+
+// Open the worst reject on load (or the head title if nothing is rejected),
+// through the same selection path a click uses.
+function openWorstFailure() {
+  const tid = openingFailId(allRows) || orderedTitles(allRows)[0].title_id;
+  selectTitle(tid);
+}
+
+async function selectTitle(titleId) {
+  selectedId = titleId;
+  renderTitles();
+  document.getElementById("slip").innerHTML = `<p class="empty">Reading slip...</p>`;
   await loadDetail(titleId);
 }
 
-async function loadDetail(titleId) {
-  const safe  = titleId.replace(/[^a-z0-9]/gi, "_");
-  const inner = document.getElementById(`inner-${safe}`);
-  if (!inner) return;
+// ── The slip, typeset as a letter ──────────────
+const CHECK_LABELS = {
+  integrated_loudness_ebu_r128: "Integrated loudness, EBU R128",
+  integrated_loudness_atsc_a85: "Integrated loudness, ATSC A/85",
+  true_peak:    "True peak ceiling",
+  black_frames: "Black segments",
+  frozen_frames:"Frozen video",
+};
+function checkLabel(name) {
+  if (CHECK_LABELS[name]) return CHECK_LABELS[name];
+  return String(name).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
 
+function num(v, unit) {
+  if (v == null) return "not measured";
+  return `${parseFloat(v).toFixed(2)} ${unit || ""}`.trim();
+}
+
+async function loadDetail(titleId) {
+  const safe = titleId.replace(/[^a-z0-9]/gi, "_");
+  const slip = document.getElementById("slip");
+  const row  = allRows.find(r => r.title_id === titleId) || {};
   try {
     const d = await fetch(`/api/title/${encodeURIComponent(titleId)}`).then(r => r.json());
-
-    const fRows = (d.findings || []).map(f => {
-      const m    = f.measured != null ? `${parseFloat(f.measured).toFixed(2)} ${f.unit || ""}`.trim() : "-";
-      const t    = f.target   != null ? `${parseFloat(f.target).toFixed(2)} ${f.unit || ""}`.trim()   : "-";
-      const stat = f.passed
-        ? `<span class="f-pass">pass</span>`
-        : `<span class="f-fail">fail</span>`;
-      const detail = f.detail ? `<div class="f-detail">${f.detail}</div>` : "";
-      return `<tr>
-        <td class="f-check">${f.check_name}</td>
-        <td class="f-meas">${m}</td>
-        <td class="f-meas">${t}</td>
-        <td>${stat}</td>
-        <td class="f-rescue">${f.rescue_cost || "-"}${detail}</td>
-      </tr>`;
-    }).join("");
-
-    const sampleNote = d.sample_count
-      ? `${d.sample_count.toLocaleString()} rows - short-term LUFS (red) vs target -23 LUFS (blue)`
-      : "No loudness data";
-
     detailCache[titleId] = d;
 
-    inner.innerHTML = `
-<div class="expand-title">${titleId}</div>
-<div class="slip-bar">
-  <button class="btn-slip" onclick="copySlip(this, ${JSON.stringify(titleId).replace(/"/g, "&quot;")})">Copy red slip</button>
+    const findings = d.findings || [];
+    const failed = findings.filter(f => !f.passed);
+    const isReject = failed.length > 0;
+
+    // Integrated loudness headline, from the EBU R128 finding if present.
+    const ebu = findings.find(f => f.check_name === "integrated_loudness_ebu_r128");
+    const lufsVal = row.integrated_lufs != null ? parseFloat(row.integrated_lufs)
+                  : (ebu && ebu.measured != null ? parseFloat(ebu.measured) : null);
+    const lufsOff = lufsVal != null ? Math.abs(lufsVal - (-23)) > 1 : false;
+
+    const checksHtml = (isReject ? failed : findings).map(f => {
+      const cls = f.passed ? "" : " reject";
+      const measured = num(f.measured, f.unit);
+      const spec = num(f.target, f.unit);
+      const detail = f.detail ? `<div class="check-detail">${f.detail}</div>` : "";
+      const rescue = f.rescue_cost ? `<div class="check-rescue">Rescue: ${f.rescue_cost}</div>` : "";
+      return `
+<div class="check${cls}">
+  <div class="check-name">${checkLabel(f.check_name)}</div>
+  <div class="check-body">measured <span class="num${cls}">${measured}</span> against spec <span class="num">${spec}</span>${f.spec ? ` (${f.spec})` : ""}</div>
+  ${detail}${rescue}
+</div>`;
+    }).join("");
+
+    // LISTEN block, straight off the stored window. No timestamp is invented.
+    const w = d.worst_window;
+    let listenHtml;
+    if (w && w.quietest_at_seconds != null) {
+      listenHtml = `
+<div class="listen">
+  <div class="time">${mmss(w.quietest_at_seconds)}</div>
+  <div class="sub">quietest ${parseFloat(w.quietest_short_term_lufs).toFixed(1)} LUFS, loudest ${parseFloat(w.loudest_short_term_lufs).toFixed(1)} LUFS short-term</div>
+</div>`;
+    } else {
+      listenHtml = `<div class="plan-none">No loudness window stored for this title.</div>`;
+    }
+
+    // PLAN block from triage already in hand, or a named next action.
+    const plan = planFor(titleId);
+    const planHtml = plan
+      ? `<div class="plan-text">${plan}</div>`
+      : `<div class="plan-none">Not triaged. <button class="btn-link" onclick="runTriage()">Re-triage the catalog</button> to fill the plan.</div>`;
+
+    const chartCap = d.sample_count
+      ? `${d.sample_count.toLocaleString()} loudness samples, short-term against the -23 LUFS line`
+      : "No loudness samples";
+
+    slip.innerHTML = `
+<div class="slip-eyebrow">Redslip</div>
+<div class="slip-verdict${isReject ? "" : " clear"}">${isReject ? "delivery rejected" : "delivery cleared"}</div>
+<h2 class="slip-title">${row.title || titleId}</h2>
+<div class="slip-id">${titleId}</div>
+
+<div class="integrated">
+  <span class="lbl">Integrated</span>
+  <span class="val${lufsOff ? " reject" : ""}">${lufsVal != null ? lufsVal.toFixed(1) + " LUFS" : "not measured"}</span>
+  <span class="spec">spec -23 &plusmn;1 LUFS</span>
+</div>
+
+<hr class="rule">
+<div class="checks">${checksHtml || `<div class="plan-none">No failed checks on this title.</div>`}</div>
+
+<div class="field listen">
+  <span class="lbl">Listen</span>
+  ${listenHtml}
+</div>
+
+<div class="field">
+  <span class="lbl">Plan</span>
+  ${planHtml}
+</div>
+
+<canvas class="lufs-chart" id="chart-${safe}"></canvas>
+<div class="chart-cap">${chartCap}</div>
+
+<div class="slip-actions">
+  <button class="btn-copy" onclick="copySlip(this, ${JSON.stringify(titleId).replace(/"/g, "&quot;")})">Copy slip</button>
   <span class="slip-note" id="slipnote-${safe}"></span>
 </div>
 <pre class="slip-fallback" id="slipfallback-${safe}"></pre>
-<div class="expand-meta">${sampleNote}</div>
-<canvas class="lufs-chart" id="chart-${safe}"></canvas>
-<table class="findings-table">
-  <thead><tr>
-    <th>Check</th><th>Measured</th><th>Target</th><th>Status</th><th>Rescue</th>
-  </tr></thead>
-  <tbody>${fRows || `<tr><td colspan="5" class="empty-state">No findings.</td></tr>`}</tbody>
-</table>`;
+<div class="triage-out" id="triage-output"></div>`;
 
-    // Wait one frame for canvas to get layout width
     requestAnimationFrame(() =>
       drawChart(`chart-${safe}`, d.loudness_chart || [], d.worst_window || null));
   } catch(e) {
-    if (inner) inner.innerHTML = `<div style="color:var(--fail);font-size:14px;padding:12px 0">Error: ${e}</div>`;
+    slip.innerHTML = `<p class="empty" style="color:var(--fail);font-style:normal">Error: ${e}</p>`;
   }
 }
 
@@ -834,6 +749,17 @@ function showFallback(safe, text) {
   sel.addRange(r);
 }
 
+// rescueText: the outstanding rescue work on a title, in one line.
+function rescueText(row) {
+  if (!row.failures) return "-";
+  const a = row.auto_fixable || 0;
+  const h = row.needs_human  || 0;
+  if (h > 0 && a > 0) return `${a} auto, ${h} human`;
+  if (h > 0) return `${h} human`;
+  if (a > 0) return `${a} auto`;
+  return "-";
+}
+
 // ── Loudness chart (light canvas) ─────────────
 
 // Where on the plot the slip's LISTEN timestamp lands. Placed by the points'
@@ -860,7 +786,7 @@ function drawChart(canvasId, data, worstWindow) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const W = canvas.offsetWidth || 700;
-  const H = 72;
+  const H = 56;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext("2d");
 
@@ -920,16 +846,14 @@ function drawChart(canvasId, data, worstWindow) {
 
 // ── Triage ─────────────────────────────────────
 async function runTriage() {
-  const btn = document.getElementById("btn-triage");
   const out = document.getElementById("triage-output");
-  btn.disabled    = true;
-  btn.textContent = "Running...";
-  out.className   = "triage-out visible";
-  out.textContent = "Querying ClickHouse via mcp-clickhouse and sending to Gemini...";
-
+  if (out) {
+    out.className   = "triage-out visible";
+    out.textContent = "Querying ClickHouse via mcp-clickhouse and sending to Gemini...";
+  }
   try {
     const d = await fetch("/api/triage", { method: "POST" }).then(r => r.json());
-    // Hold the report so Copy red slip can quote the plan without a model call.
+    // Hold the report so the slip can quote the plan without a model call.
     if (d && d.rescue_plan) lastTriage = d;
     let text = "";
     if (d.summary) {
@@ -953,16 +877,15 @@ async function runTriage() {
     } else {
       text = JSON.stringify(d, null, 2);
     }
-    out.textContent = text;
+    if (out) out.textContent = text;
+    // Re-render the current slip so its PLAN block picks up the fresh triage.
+    if (selectedId) loadDetail(selectedId);
   } catch(e) {
-    out.textContent = `Error: ${e}`;
-  } finally {
-    btn.disabled    = false;
-    btn.textContent = "Re-triage selected title";
+    if (out) out.textContent = `Error: ${e}`;
   }
 }
 
-// ── MCP log footnote ───────────────────────────
+// ── MCP log colophon ───────────────────────────
 function handleMcpToggle(el) {
   if (el.open && !mcpLoaded) loadMCPLog();
 }
@@ -993,7 +916,6 @@ async function loadMCPLog() {
 }
 
 // ── Init ───────────────────────────────────────
-loadStats();
 loadCatalog();
 </script>
 </body>
