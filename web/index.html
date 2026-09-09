@@ -603,7 +603,8 @@ async function loadDetail(titleId) {
 </table>`;
 
     // Wait one frame for canvas to get layout width
-    requestAnimationFrame(() => drawChart(`chart-${safe}`, d.loudness_chart || []));
+    requestAnimationFrame(() =>
+      drawChart(`chart-${safe}`, d.loudness_chart || [], d.worst_window || null));
   } catch(e) {
     if (inner) inner.innerHTML = `<div style="color:var(--fail);font-size:14px;padding:12px 0">Error: ${e}</div>`;
   }
@@ -788,7 +789,28 @@ function showFallback(safe, text) {
 }
 
 // ── Loudness chart (light canvas) ─────────────
-function drawChart(canvasId, data) {
+
+// Where on the plot the slip's LISTEN timestamp lands. Placed by the points'
+// own `t` seconds, never by array index, so a window at 180s cannot land at
+// x=0 just because it is the first thing we know about. Returns null when the
+// title has no stored window: no window, no marker, no invented time.
+function listenMarkerX(data, worstWindow, W) {
+  if (!worstWindow || worstWindow.quietest_at_seconds == null) return null;
+  if (!data || data.length < 2) return null;
+
+  const t0 = Number(data[0].t);
+  const t1 = Number(data[data.length - 1].t);
+  const span = t1 - t0;
+  if (!(span > 0)) return null;
+
+  const t = Number(worstWindow.quietest_at_seconds);
+  if (!Number.isFinite(t)) return null;
+
+  const frac = Math.min(Math.max((t - t0) / span, 0), 1);
+  return frac * W;
+}
+
+function drawChart(canvasId, data, worstWindow) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const W = canvas.offsetWidth || 700;
@@ -836,6 +858,18 @@ function drawChart(canvasId, data) {
   ctx.font      = "10px 'JetBrains Mono', monospace";
   const labelY  = ty < 18 ? ty + 14 : ty - 4;
   ctx.fillText("-23 LUFS", W - 64, labelY);
+
+  // Listen-point: the same passage, at the same time, the slip names.
+  const mx = listenMarkerX(data, worstWindow, W);
+  if (mx == null) return;
+  ctx.strokeStyle = "#1f1f1f";
+  ctx.lineWidth   = 1;
+  ctx.beginPath(); ctx.moveTo(mx, 0); ctx.lineTo(mx, H); ctx.stroke();
+
+  const stamp = mmss(worstWindow.quietest_at_seconds);
+  ctx.fillStyle = "#1f1f1f";
+  const tw = ctx.measureText(stamp).width;
+  ctx.fillText(stamp, Math.min(Math.max(mx + 3, 0), W - tw), 10);
 }
 
 // ── Triage ─────────────────────────────────────
