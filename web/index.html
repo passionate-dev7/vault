@@ -141,13 +141,8 @@ header {
   line-height: 1.02;
   letter-spacing: -1px;
   color: var(--ink);
-  margin: 16px 0 4px;
+  margin: 16px 0 24px;
   max-width: 20ch;
-}
-.slip-id {
-  font: 400 12.5px/1.4 var(--mono);
-  color: var(--body);
-  margin-bottom: 22px;
 }
 
 .rule { border: 0; border-top: 1px solid var(--ink); margin: 22px 0; }
@@ -316,7 +311,7 @@ details > summary:hover { color: var(--ink); }
 
 <header>
   <h1 class="masthead">Redslip</h1>
-  <p class="standfirst">A delivery-rejection slip for the archive: pick a title on the left, read the slip on the right. Every number is measured against the delivery spec, not estimated.</p>
+  <p class="standfirst">The titles in this archive that the delivery spec would reject today, worst first.</p>
 </header>
 
 <div class="sheet">
@@ -533,7 +528,6 @@ async function loadDetail(titleId) {
 <div class="slip-eyebrow">Redslip</div>
 <div class="slip-verdict${isReject ? "" : " clear"}">${isReject ? "delivery rejected" : "delivery cleared"}</div>
 <h2 class="slip-title">${row.title || titleId}</h2>
-<div class="slip-id">${titleId}</div>
 
 <div class="integrated">
   <span class="lbl">Integrated</span>
