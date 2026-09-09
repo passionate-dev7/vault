@@ -131,6 +131,22 @@ main { max-width: 1240px; margin: 0 auto; padding: 0 40px 80px; }
 .btn-sort:hover { color: var(--ink); border-bottom-color: var(--ink); }
 .btn-sort.active { color: var(--ink); border-bottom-color: var(--ink); }
 .ctrl-sep { color: var(--hairline); font-size: 14px; }
+
+/* Verdict chips */
+.chips { display: flex; align-items: center; gap: 10px; padding: 4px 0 0; flex-wrap: wrap; }
+.chip {
+  background: none;
+  border: 1px solid var(--hairline);
+  font: 700 11px/1.4 var(--sans);
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  color: var(--body);
+  cursor: pointer;
+  padding: 5px 12px;
+}
+.chip:hover { color: var(--ink); border-color: var(--ink); }
+.chip.active { color: var(--canvas); background: var(--ink); border-color: var(--ink); }
+.chip .chip-n { font-family: var(--mono); letter-spacing: 0; margin-left: 6px; }
 .btn-triage {
   background: none;
   border: none;
@@ -389,6 +405,13 @@ details > summary:hover { color: var(--ink); }
     <button class="btn-triage" id="btn-triage" onclick="runTriage()">Re-triage selected title</button>
   </div>
 
+  <!-- Verdict chips: rejects first -->
+  <div class="chips" id="verdict-chips">
+    <button class="chip active" id="chip-FAIL" onclick="setVerdictFilter('FAIL')">Fail<span class="chip-n" id="chip-n-FAIL">-</span></button>
+    <button class="chip" id="chip-PASS" onclick="setVerdictFilter('PASS')">Pass<span class="chip-n" id="chip-n-PASS">-</span></button>
+    <button class="chip" id="chip-ALL" onclick="setVerdictFilter('ALL')">All<span class="chip-n" id="chip-n-ALL">-</span></button>
+  </div>
+
   <!-- Catalog table - the product -->
   <div class="table-wrap">
     <table id="catalog-table">
@@ -428,6 +451,7 @@ let allRows   = [];
 let sortKey   = "failures";
 let sortDesc  = true;
 let filterStr = "";
+let verdictFilter = "FAIL";   // rejects first
 let expandedId = null;
 let mcpLoaded  = false;
 
@@ -447,10 +471,32 @@ async function loadCatalog() {
   tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Loading catalog...</td></tr>`;
   try {
     allRows = await fetch("/api/catalog").then(r => r.json());
+    renderChipCounts();
     renderTable();
   } catch(e) {
     tbody.innerHTML = `<tr><td colspan="6" style="color:var(--fail);padding:24px 0;font-size:15px">Error loading catalog: ${e}</td></tr>`;
   }
+}
+
+// Rows a chip shows. Pure, so a test can run it on the real payload.
+function verdictRows(rows, verdict) {
+  if (verdict === "ALL") return rows.slice();
+  return rows.filter(r => (r.verdict === "PASS" ? "PASS" : "FAIL") === verdict);
+}
+
+function renderChipCounts() {
+  for (const v of ["FAIL", "PASS", "ALL"]) {
+    document.getElementById("chip-n-" + v).textContent = verdictRows(allRows, v).length;
+  }
+}
+
+function setVerdictFilter(v) {
+  verdictFilter = v;
+  expandedId = null;
+  for (const k of ["FAIL", "PASS", "ALL"]) {
+    document.getElementById("chip-" + k).classList.toggle("active", k === v);
+  }
+  renderTable();
 }
 
 function applyFilter() {
@@ -488,7 +534,7 @@ function rescueText(row) {
 }
 
 function renderTable() {
-  const filtered = allRows
+  const filtered = verdictRows(allRows, verdictFilter)
     .filter(r => !filterStr || (r.title || r.title_id).toLowerCase().includes(filterStr))
     .sort((a, b) => {
       let av = a[sortKey], bv = b[sortKey];
@@ -500,7 +546,7 @@ function renderTable() {
 
   const tbody = document.getElementById("catalog-body");
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No titles match "${filterStr || "current filter"}".</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No ${verdictFilter === "ALL" ? "" : verdictFilter + " "}titles match "${filterStr || "current filter"}".</td></tr>`;
     return;
   }
 
