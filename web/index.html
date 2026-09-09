@@ -334,6 +334,17 @@ details > summary:hover { color: var(--ink); }
 }
 .btn-slip:hover { background: var(--ink); }
 .slip-note { font: 400 13px/1.4 var(--mono); color: var(--body); }
+.slip-fallback {
+  display: none;
+  font: 400 12px/1.6 var(--mono);
+  color: var(--ink-soft);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  white-space: pre-wrap;
+  user-select: text;
+}
 
 .empty-state { color: var(--body); font-family: var(--read); font-size: 17px; padding: 28px 0; }
 </style>
@@ -581,6 +592,7 @@ async function loadDetail(titleId) {
   <button class="btn-slip" onclick="copySlip(this, ${JSON.stringify(titleId).replace(/"/g, "&quot;")})">Copy red slip</button>
   <span class="slip-note" id="slipnote-${safe}"></span>
 </div>
+<pre class="slip-fallback" id="slipfallback-${safe}"></pre>
 <div class="expand-meta">${sampleNote}</div>
 <canvas class="lufs-chart" id="chart-${safe}"></canvas>
 <table class="findings-table">
@@ -607,7 +619,7 @@ function buildSlip(titleId) {
   const failed = findings.filter(f => !f.passed);
   const row = allRows.find(r => r.title_id === titleId) || {};
   const L = [];
-  L.push("RED SLIP: delivery rejected");
+  L.push(failed.length ? "RED SLIP: delivery rejected" : "CLEAR SLIP: delivery accepted");
   L.push("");
   L.push(`Title:   ${row.title || titleId}`);
   L.push(`ID:      ${titleId}`);
@@ -640,25 +652,62 @@ function buildSlip(titleId) {
   return L.join("\n");
 }
 
-async function copySlip(btn, titleId) {
+function copySlip(btn, titleId) {
   const text = buildSlip(titleId);
   const safe = titleId.replace(/[^a-z0-9]/gi, "_");
   const note = document.getElementById(`slipnote-${safe}`);
-  try {
-    await navigator.clipboard.writeText(text);
-    if (note) note.textContent = `Copied ${text.split("\n").length} lines to clipboard`;
-  } catch(e) {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    if (note) note.textContent = ok ? "Copied to clipboard" : "Copy blocked by browser";
+  const lines = text.split("\n").length;
+
+  // execCommand first: synchronous, works even when the tab is not focused.
+  // The async clipboard API stalls indefinitely on an unfocused document.
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.top = "0";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand("copy"); } catch(e) { ok = false; }
+  document.body.removeChild(ta);
+
+  if (ok) {
+    if (note) note.textContent = `Copied ${lines} lines to clipboard`;
+    setTimeout(() => { if (note) note.textContent = ""; }, 4000);
+    return;
   }
-  setTimeout(() => { if (note) note.textContent = ""; }, 4000);
+  if (navigator.clipboard) {
+    if (note) note.textContent = "Copying...";
+    let settled = false;
+    navigator.clipboard.writeText(text).then(
+      () => { settled = true; if (note) note.textContent = `Copied ${lines} lines to clipboard`; },
+      () => { settled = true; if (note) note.textContent = "Copy blocked, select the slip below and copy manually"; showFallback(safe, text); }
+    );
+    setTimeout(() => {
+      if (!settled && note) {
+        note.textContent = "Copy blocked, select the slip below and copy manually";
+        showFallback(safe, text);
+      }
+    }, 1500);
+    return;
+  }
+  if (note) note.textContent = "Copy blocked, select the slip below and copy manually";
+  showFallback(safe, text);
+}
+
+// Visible, selectable slip so a reviewer is never stranded when the browser
+// refuses clipboard access.
+function showFallback(safe, text) {
+  const host = document.getElementById(`slipfallback-${safe}`);
+  if (!host) return;
+  host.textContent = text;
+  host.style.display = "block";
+  const r = document.createRange();
+  r.selectNodeContents(host);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
 }
 
 // ── Loudness chart (light canvas) ─────────────
