@@ -655,6 +655,27 @@ function planFor(titleId) {
   return null;
 }
 
+function mmss(seconds) {
+  const s = Math.floor(Number(seconds));
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+// The quietest sustained passage, straight off /api/title. No timestamp is
+// invented: a title with no stored window says so.
+function listenLines(titleId) {
+  const w = (detailCache[titleId] || {}).worst_window;
+  if (!w || w.quietest_at_seconds == null) {
+    return ["LISTEN: no loudness window stored for this title."];
+  }
+  return [
+    "LISTEN",
+    "-".repeat(60),
+    `Quietest at:  ${mmss(w.quietest_at_seconds)}`,
+    `Quietest S:   ${parseFloat(w.quietest_short_term_lufs).toFixed(1)} LUFS short-term`,
+    `Loudest S:    ${parseFloat(w.loudest_short_term_lufs).toFixed(1)} LUFS short-term`,
+  ];
+}
+
 function buildSlip(titleId) {
   const d = detailCache[titleId];
   if (!d) return "";
@@ -690,6 +711,9 @@ function buildSlip(titleId) {
   L.push("COST TO RESCUE");
   L.push("-".repeat(60));
   L.push(rescueText(row) === "-" ? "No rescue work outstanding." : rescueText(row));
+  L.push("");
+
+  listenLines(titleId).forEach(l => L.push(l));
   L.push("");
 
   const plan = planFor(titleId);

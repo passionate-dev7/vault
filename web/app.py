@@ -121,6 +121,12 @@ async def title_detail(title_id: str):
             parameters={"t": title_id},
         )
         findings = [dict(zip(res.column_names, row)) for row in res.result_rows]
+        # Silent audio measures true_peak = -inf, which is not valid JSON.
+        # Keep the finding, drop the unencodable number.
+        for f in findings:
+            for k, v in f.items():
+                if isinstance(v, float) and (v != v or v in (float("inf"), float("-inf"))):
+                    f[k] = None
         if not findings:
             raise HTTPException(status_code=404, detail=f"No findings for {title_id!r}")
 
@@ -143,6 +149,9 @@ async def title_detail(title_id: str):
             "findings": findings,
             "loudness_chart": chart,
             "sample_count": len(ts_rows),
+            # Quietest sustained passage, so the slip can point a mixer at a
+            # timestamp instead of at the plot. None when nothing was measured.
+            "worst_window": store.worst_window(title_id, ch=ch),
         }
     except HTTPException:
         raise

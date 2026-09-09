@@ -146,3 +146,21 @@ def loudness_extremes(ch=None) -> list[dict]:
         "FROM vault.loudness_extremes ORDER BY integrated_lufs ASC"
     )
     return [dict(zip(res.column_names, row)) for row in res.result_rows]
+
+
+def worst_window(title_id: str, ch=None) -> dict | None:
+    """Quietest sustained short-term window for one title, or None if unmeasured."""
+    ch = ch or client()
+    res = ch.query(
+        "SELECT worst_window_at_seconds, worst_short_term_lufs, best_short_term_lufs "
+        "FROM vault.loudness_extremes WHERE title_id = %(t)s",
+        parameters={"t": title_id},
+    )
+    if not res.result_rows:
+        return None
+    at, quietest, loudest = res.result_rows[0]
+    return {
+        "quietest_at_seconds": float(at),
+        "quietest_short_term_lufs": float(quietest),
+        "loudest_short_term_lufs": float(loudest),
+    }
