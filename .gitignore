@@ -5,3 +5,5 @@ __pycache__/
 data/
 logs/*.log
 .env
+.uicraft-read.json
+mitm_mcp_traffic.db

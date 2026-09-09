@@ -1,51 +1,56 @@
-# WORK ORDER: rebuild VAULT as a delivery-rejection ledger, not a dashboard
+# WORK ORDER: rebuild Redslip so the first screen is a printed slip
 
-Rewrite `web/index.html` only. Do not change Python APIs in `web/app.py` unless a one-line bug blocks the page. Keep every existing fetch URL.
+You are Claude Opus. Effort high. Visual judgment is the job. Do not add a FAIL chip or an auto-expand. Rebuild the first viewport.
 
-## Why it loses
+Wordmark **Redslip**. You are in `projects/vault`. Rewrite `web/index.html`. Keep `/api/catalog`, `/api/title/{id}`, `/api/triage`, `/api/stats`. Do not introduce Next.js or Inter.
 
-WIRED tokens were applied onto dashboard leftovers: `.stats-bar`, `.stat-card`, `.badge` pills, `.overlay` modal, uppercase kickers, "MCP section". It still reads as a hackathon console in a serif costume. The product is a **catalog contents page**: which titles in this archive would be rejected today, ranked, each row a measured number.
+## Why the current page is slop
 
-## Visual system
+Playfair Display is the default "editorial AI" serif. The page is a SaaS table: three stat numbers, sort chips, expandable rows. A QC lead who rejects a delivery writes a slip. They do not filter a grid.
 
-Keep `DESIGN.md` (WIRED). Playfair Display + Source Serif 4 + Inter for utility + JetBrains Mono for numbers. White canvas, black ink, one link blue `#057dbc`, fail red `#c81e1e`. No cards. No pills. No dark mode. Sections separated by rules, like a magazine contents list.
+## Design Read (already locked)
 
-## First viewport
+`.uicraft-read.json` exists. Tokens from `DESIGN.md` (Wired) with one substitution:
+- Display: **Newsreader** (Google Fonts), not Playfair. Playfair is the tell. Wired wants a tall narrow news serif. Newsreader at 64-88px, weight 400, tracking slightly negative.
+- Reading: Source Serif 4 or Newsreader at 19px.
+- Utility: Apercu substitute is Helvetica Neue / system sans. Mono: JetBrains Mono for LUFS only.
+- Canvas: `#ffffff`. Ink: `#000`. Link blue `#057dbc`. Fail ink `#c81e1e`.
+- Radius: 0. Hairline rules, not cards.
+- Showpiece: none.
 
-Masthead: the word VAULT in Playfair, then one sentence that names the job. Then **the index is immediately visible**, not below three stat cards.
+Obey uicraft contract. `uicraft gate --cwd web` then `uicraft look --url http://127.0.0.1:8081`.
 
-The index is the product:
-- Rank
-- Title (serif, the film's name)
-- Integrated LUFS vs -23 (mono, fail in red if out of ±1)
-- Failures (count)
-- Rescue (what the row already stores: auto-fixable vs human)
-- Verdict
+## First viewport (this is the product)
 
-Clicking a row expands **in place** (not a modal overlay): the measured checks, the worst window if present, and the MCP/agent note. A modal is a dashboard tell. An accordion row is a ledger.
+A printed slip, full page, like a letter on white stock.
 
-Above the table, three numbers in Playfair at ~48-56px, not in cards: titles scanned, titles failing, titles that would pass after auto-repair. Baseline them. No "stat-card" boxes.
+LEFT (~38%): newspaper column of titles. Each line is title, integrated LUFS vs -23, fail count. Fail titles in fail ink. Pass titles in body gray. No table header row of "Title / LUFS / Failures / Rescue / Verdict". No sort chip bar. Default order: worst LUFS delta first. Clicking a line sets the slip.
 
-A single control to re-triage the selected title (`POST /api/triage`) as a text-style button, not a giant yellow CTA.
+RIGHT (~62%): the slip for the selected title, already filled on load with the worst FAIL (from `/api/catalog` + `/api/title/{id}`). Typeset as a letter:
 
-## MCP
+```
+REDSLIP
+delivery rejected
+<title>
+Integrated  <n> LUFS    spec  -23 ±1
+<each failed check, measured vs spec>
+LISTEN  <mm:ss>
+PLAN    <triage text or: not triaged>
+```
 
-`/api/mcp-log` is a footnote under the table: "queries the agent ran", mono, collapsed by default. Do not lead with it.
+**Copy slip** is a text control under the letter, same as now (execCommand first). PLAN and LISTEN stay when that data exists. The loudness plot is a hairline under the slip, with the listen marker, or it is omitted if it fights the letter. Prefer the letter.
 
-## APIs
-
-- GET `/api/stats`
-- GET `/api/catalog`
-- GET `/api/title/{title_id}`
-- POST `/api/triage`
-- GET `/api/mcp-log`
-
-Preserve field names the current JS already uses. Read `web/index.html` script and `web/app.py` before deleting any column.
+Masthead is the word **Redslip** in Newsreader, one line, with a 2px black rule under it. Standfirst is one sentence, Source Serif, max 62ch: what the page is. Not a product tagline.
 
 ## Hard bans
 
-No emoji, no pills, no overlay modal, no Inter display type, no dark canvas, no yellow, no gradient, no "Loading…" as the only empty state (name the catalog). No em dash.
+Playfair. Inter. Stat-number band of three KPIs. Sort chips. Expandable table rows. Pills. Cards. Shadows. Dark mode. Emoji. Em dash. En dash. Green pass badges as the first thing you see.
 
-## Done
+## Done when
 
-First screen is a ranked list of real titles with LUFS. Print 10 lines describing it.
+1. `uicraft gate --cwd web` exits 0 (the current en-dash on A-Z sort must be gone because that chrome is gone).
+2. `uicraft look --url http://127.0.0.1:8081` at 1440. Name remaining tells. Fix them.
+3. A judge at 8 seconds is reading a rejection letter, not a spreadsheet.
+4. Commit.
+
+Keep copySlip, planFor, listenLines behaviour. Restyle is allowed. The letter is the product.
