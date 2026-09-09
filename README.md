@@ -81,7 +81,7 @@ archive.org catalog
 - **Scan window**: each title is bounded to the **first 2 minutes** of content. A full 90-minute scan would take ~6 minutes per title and block the demo. The window is stated explicitly in the UI — loudness failures are representative across the film but the numbers are not from a full-scan.
 - **Loudness does not represent the full file**: a film might have an intro that loudness-normalizes cleanly but a very quiet dialogue scene later. The 2-minute window catches most cases but is not a broadcast-grade full-scan.
 - **Subtitle checks are real**: when a `.srt` file is available, the reading-speed and duration checks run over the full subtitle track (not just 2 minutes).
-- **No remediation**: VAULT identifies and prioritizes. The fix (loudnorm pass, cue retiming) is separate tooling — see the sibling DELIVERABLE project.
+- **No remediation**: Redslip identifies and prioritizes. The fix (loudnorm pass, cue retiming) is separate tooling. See the sibling Checkprint project.
 
 ---
 
@@ -157,9 +157,9 @@ Row counts after 20-title scan: **~36,000+ loudness rows**, 20 title scans, ~1,2
 |---|---|---|---|
 | Telestream Vantage | Yes | Yes (PDF) | Paid per-seat license |
 | Venera Pulsar | Yes | Yes | Paid cloud |
-| **VAULT** | Yes | Yes (live table, sorted by severity) | Free, open source |
+| **Redslip** | Yes | Yes (live table, sorted by severity) | Free, open source |
 
-VAULT does not remediate (Vantage does). The differentiator is: zero cost on the 28,423 public-domain titles any film archive can audit today, with a Gemini-powered rescue plan that costs per-call not per-seat.
+Redslip does not remediate (Vantage does). The differentiator is: zero cost on the 28,423 public-domain titles any film archive can audit today, with a Gemini-powered rescue plan that costs per-call not per-seat.
 
 ---
 
