@@ -612,6 +612,49 @@ async function loadDetail(titleId) {
 // ── Red slip ───────────────────────────────────
 const detailCache = {};
 
+// Last /api/triage result, kept so the slip can quote the rescue plan without
+// calling Gemini again. The copy button never triggers a model call.
+let lastTriage = null;
+
+// Pull this title's entry out of whatever triage material is already in hand:
+// the cached /api/triage report first, then anything /api/title returned.
+function planFor(titleId) {
+  const d = detailCache[titleId] || {};
+  const row = allRows.find(r => r.title_id === titleId) || {};
+  const name = (row.title || "").toLowerCase();
+
+  const entry = (lastTriage && lastTriage.rescue_plan || []).find(p =>
+    p.title_id === titleId ||
+    (p.title && name && p.title.toLowerCase() === name)
+  );
+
+  if (entry) {
+    const L = [];
+    if (entry.priority != null) L.push(`Priority:  ${entry.priority}`);
+    if (entry.action)           L.push(`Action:    ${entry.action}`);
+    if (entry.measured_lufs != null) {
+      const delta = entry.lufs_delta != null ? parseFloat(entry.lufs_delta).toFixed(1) : "n/a";
+      L.push(`LUFS:      ${parseFloat(entry.measured_lufs).toFixed(1)} (target -23, delta ${delta} LU)`);
+    }
+    if (entry.rescue_cost) L.push(`Rescue:    ${entry.rescue_cost}`);
+    if (entry.rationale)   L.push(`Rationale: ${entry.rationale}`);
+    if (lastTriage.operator_note) {
+      L.push("");
+      L.push("Operator note");
+      L.push(lastTriage.operator_note);
+    }
+    if (lastTriage.model) L.push(`Planned by ${lastTriage.model}.`);
+    return L.join("\n");
+  }
+
+  // Fall back to plan text carried on the title record itself, if the backend
+  // ever attaches one.
+  const inline = d.rescue_plan || d.triage_plan || d.plan;
+  if (typeof inline === "string" && inline.trim()) return inline.trim();
+
+  return null;
+}
+
 function buildSlip(titleId) {
   const d = detailCache[titleId];
   if (!d) return "";
@@ -647,6 +690,16 @@ function buildSlip(titleId) {
   L.push("COST TO RESCUE");
   L.push("-".repeat(60));
   L.push(rescueText(row) === "-" ? "No rescue work outstanding." : rescueText(row));
+  L.push("");
+
+  const plan = planFor(titleId);
+  if (plan) {
+    L.push("PLAN");
+    L.push("-".repeat(60));
+    L.push(plan);
+  } else {
+    L.push("PLAN: not triaged. Click Re-triage selected title.");
+  }
   L.push("");
   L.push("Measured by Redslip against the delivery spec.");
   return L.join("\n");
@@ -772,6 +825,8 @@ async function runTriage() {
 
   try {
     const d = await fetch("/api/triage", { method: "POST" }).then(r => r.json());
+    // Hold the report so Copy red slip can quote the plan without a model call.
+    if (d && d.rescue_plan) lastTriage = d;
     let text = "";
     if (d.summary) {
       text += `SUMMARY\n${d.summary}\n\n`;
