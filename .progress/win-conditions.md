@@ -39,3 +39,13 @@ One entry, one track. `grafana_board` is a fifth agent holding the official `mcp
 ## Honest limits carried into every surface
 
 Each title is measured over its first 120 seconds, stated wherever a number appears. None of the 20 titles ships an SRT, so the Netflix TTSS checks are exercised by tests rather than by this catalog. The 28,423-title figure is a projection and is labelled as one. Nobody has run this in production.
+
+## Open, named rather than quietly dropped
+
+The hostile ClickHouse-judge critique of 2026-09-09 landed three findings this
+workstream did not have time to close, and none of them are closed by a doc saying so.
+The `ASOF` join annotates a defect but cannot move `vault.fleet.lane`, which is computed
+from `findings.auto_fixable` alone. `FLAT`/`WIDE` is a threshold in a prompt rather than
+a state on the rollup. Subtitle cues past the 120s window are scored against audio that
+was never measured there. All three are schema changes against a live deployed service
+inside the last hour before a deadline, which is the one trade this project does not make.
